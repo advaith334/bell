@@ -1,0 +1,116 @@
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  background: transparent;
+  font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Text', system-ui, sans-serif;
+  overflow: hidden;
+  /* The window is click-through except for the card and its controls. */
+  -webkit-user-select: none;
+  user-select: none;
+}
+
+.hud {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin: 8px;
+  padding: 12px 14px;
+  border-radius: 14px;
+  background: rgba(22, 24, 30, 0.92);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  box-shadow: 0 10px 32px rgba(0, 0, 0, 0.45);
+  backdrop-filter: blur(20px);
+  color: #f2f4f8;
+}
+
+.hud--error {
+  border-color: rgba(255, 122, 122, 0.35);
+}
+
+.hud__indicator {
+  display: grid;
+  place-items: center;
+  width: 26px;
+  height: 26px;
+  flex: 0 0 auto;
+}
+
+.hud__dot {
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  background: #6ea8ff;
+}
+
+.hud__indicator--live .hud__dot {
+  animation: pulse 1.1s ease-in-out infinite;
+}
+
+.hud__spinner {
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  border: 2px solid rgba(255, 255, 255, 0.2);
+  border-top-color: #6ea8ff;
+  animation: spin 0.7s linear infinite;
+}
+
+.hud__body {
+  min-width: 0;
+  flex: 1 1 auto;
+}
+
+.hud__label {
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: rgba(255, 255, 255, 0.5);
+}
+
+.hud__text {
+  margin-top: 2px;
+  font-size: 13px;
+  line-height: 1.35;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  color: rgba(255, 255, 255, 0.9);
+}
+
+.hud__stop {
+  flex: 0 0 auto;
+  padding: 6px 12px;
+  border-radius: 8px;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  background: rgba(255, 255, 255, 0.06);
+  color: #f2f4f8;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.hud__stop:hover {
+  background: rgba(255, 255, 255, 0.12);
+}
+
+@keyframes pulse {
+  0%,
+  100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 0.45;
+    transform: scale(1.5);
+  }
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}

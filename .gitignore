@@ -1,0 +1,8 @@
+node_modules/
+out/
+.vite/
+dist/
+swift-helper/dist/
+*.log
+.DS_Store
+coverage/
