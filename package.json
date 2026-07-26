@@ -1,0 +1,52 @@
+{
+  "name": "bell",
+  "productName": "Bell",
+  "version": "0.1.0",
+  "description": "Highlight any text, hit a hotkey, hear it read aloud",
+  "main": ".vite/build/main.js",
+  "license": "MIT",
+  "author": {
+    "name": "Advaith Karthikeyan"
+  },
+  "scripts": {
+    "start": "electron-forge start",
+    "package": "electron-forge package",
+    "make": "electron-forge make",
+    "build:helper": "./swift-helper/build.sh",
+    "typecheck": "tsc --noEmit",
+    "test": "jest",
+    "lint": "eslint src --ext .ts,.tsx"
+  },
+  "dependencies": {
+    "@elevenlabs/elevenlabs-js": "^2.4.0",
+    "better-sqlite3": "^13.0.1",
+    "electron-squirrel-startup": "^1.0.1",
+    "electron-store": "^8.2.0",
+    "he": "^1.2.0",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1"
+  },
+  "devDependencies": {
+    "@electron-forge/cli": "^7.8.1",
+    "@electron-forge/maker-zip": "^7.8.1",
+    "@electron-forge/plugin-vite": "^7.8.1",
+    "@types/better-sqlite3": "^7.6.13",
+    "@types/he": "^1.2.3",
+    "@types/jest": "^29.5.14",
+    "@types/react": "^18.3.18",
+    "@types/react-dom": "^18.3.5",
+    "@vitejs/plugin-react": "^4.3.4",
+    "electron": "^33.4.11",
+    "jest": "^29.7.0",
+    "ts-jest": "^29.2.5",
+    "ts-node": "^10.9.2",
+    "typescript": "^5.7.3",
+    "vite": "^5.4.19"
+  },
+  "allowScripts": {
+    "better-sqlite3@13.0.1": true,
+    "electron@33.4.11": true,
+    "esbuild@0.21.5": true,
+    "fsevents@2.3.3": true
+  }
+}
