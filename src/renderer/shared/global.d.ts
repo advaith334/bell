@@ -1,4 +1,4 @@
-import type { BellApi } from '@/preload'
+import type { BellApi } from '@/preload/preload'
 
 declare global {
   interface Window {

@@ -20,6 +20,12 @@ export interface ReaderCallbacks {
   onStatus: (status: PlaybackStatus) => void
   /** Hands complete mp3 bytes to the audio renderer for gapless append. */
   onAudio: (utteranceId: string, chunkIndex: number, audio: Buffer, isLast: boolean) => void
+  /**
+   * Tears down playback in the audio renderer. Aborting synthesis is not enough
+   * to stop the sound: whatever was already buffered keeps playing until the
+   * renderer is told to drop it.
+   */
+  onReset: () => void
 }
 
 interface Session {
@@ -48,6 +54,10 @@ export function isActive(): boolean {
 
 /** Stops playback and records how far the user actually got. */
 export function stop(): void {
+  // Always reset the renderer, even with no session tracked here — otherwise a
+  // desynced state would leave audio playing with no way to silence it.
+  callbacks?.onReset()
+
   if (!current) return
 
   const session = current
@@ -139,6 +149,9 @@ export async function read(options: ReadOptions = {}): Promise<void> {
     stop()
     return
   }
+
+  // Clear any audio still buffered from a previous read before starting.
+  callbacks?.onReset()
 
   const config = settings.load()
 

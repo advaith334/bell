@@ -6,3 +6,8 @@ swift-helper/dist/
 *.log
 .DS_Store
 coverage/
+.env
+.env
+.env.local
+abi-out.txt
+abi-probe.js

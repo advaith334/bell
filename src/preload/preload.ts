@@ -51,6 +51,19 @@ const api = {
       ipcRenderer.removeListener(IPC.historyChanged, listener)
     }
   },
+
+  /** Fired by the Settings… menu item and Cmd+, */
+  onOpenSettings: (handler: () => void): (() => void) => {
+    const listener = () => handler()
+    ipcRenderer.on(IPC.openSettings, listener)
+    return () => {
+      ipcRenderer.removeListener(IPC.openSettings, listener)
+    }
+  },
+
+  /** The HUD reports pointer-over-card so main can toggle click-through. */
+  setHudInteractive: (interactive: boolean) =>
+    ipcRenderer.send(IPC.hudInteractive, interactive),
 }
 
 /** Only the hidden audio window uses this half of the bridge. */

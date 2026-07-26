@@ -115,6 +115,9 @@ export interface Settings {
   codePolicy: CodePolicy
   pauses: PauseSettings
   maxChars: number
+  launchAtLogin: boolean
+  /** Keep a small always-on indicator onscreen so Bell is visibly running. */
+  showIndicator: boolean
 }
 
 export const DEFAULT_SETTINGS: Settings = {
@@ -127,4 +130,6 @@ export const DEFAULT_SETTINGS: Settings = {
   codePolicy: 'announce',
   pauses: DEFAULT_PAUSES,
   maxChars: 5000,
+  launchAtLogin: false,
+  showIndicator: true,
 }

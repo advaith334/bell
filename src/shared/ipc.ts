@@ -23,9 +23,13 @@ export const IPC = {
   audioFinished: 'bell:audio-finished',
   audioError: 'bell:audio-error',
 
+  // HUD -> main
+  hudInteractive: 'bell:hud-interactive',
+
   // Main -> renderer
   status: 'bell:status',
   audioChunk: 'bell:audio-chunk',
   audioReset: 'bell:audio-reset',
   historyChanged: 'bell:history-changed',
+  openSettings: 'bell:open-settings',
 } as const

@@ -22,10 +22,30 @@ npm run build:helper   # compiles swift-helper/dist/bell-helper
 npm start
 ```
 
-On first launch, grant Accessibility permission when prompted and paste your
-ElevenLabs API key into Settings. The key is encrypted with Electron's
-`safeStorage`, which is backed by the macOS Keychain — it is never written to
-`settings.json`.
+On first launch, grant Accessibility permission when prompted and add your
+ElevenLabs API key. Either paste it into Settings — where it is encrypted with
+Electron's `safeStorage`, backed by the macOS Keychain, and never written to
+`settings.json` — or put it in a `.env` at the project root:
+
+```
+ELEVEN_LABS_API_KEY=sk_...
+```
+
+A key saved through Settings always wins over `.env`, so the two cannot disagree
+confusingly.
+
+## Using it
+
+Bell lives in the menu bar, not the dock — the dock icon appears only while the
+Home window is open. A small pill sits in the bottom-right corner so you can see
+Bell is running: a quiet dot when idle, a level meter and a stop button while
+speaking. Click it to start or stop, or press the shortcut (⌥` by default).
+The pill is click-through everywhere except the pill itself, so it never eats a
+click meant for the window behind it.
+
+Shortcuts are recorded by pressing the combination you want, in Settings. A
+modifier is required — a bare key would be swallowed system-wide, so you could
+never type it anywhere else.
 
 ### A constraint worth knowing
 

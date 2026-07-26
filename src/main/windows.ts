@@ -1,4 +1,5 @@
-import { BrowserWindow, screen } from 'electron'
+import { app, BrowserWindow, nativeTheme, screen } from 'electron'
+import fs from 'node:fs'
 import path from 'node:path'
 
 /**
@@ -8,29 +9,115 @@ import path from 'node:path'
  * no main-process equivalent.
  */
 
+// Injected by Forge's Vite plugin, named after the renderer entry in
+// forge.config.ts. They are absent in a packaged build, so every read goes
+// through devServerUrl()/rendererName() rather than touching them directly —
+// a bare reference to an undefined global throws a ReferenceError that would
+// take down window creation before anything is visible.
 declare const MAIN_WINDOW_VITE_DEV_SERVER_URL: string | undefined
-declare const MAIN_WINDOW_VITE_NAME: string
+declare const MAIN_WINDOW_VITE_NAME: string | undefined
 
-const HUD_WIDTH = 460
-const HUD_HEIGHT = 92
-const HUD_BOTTOM_MARGIN = 80
+function devServerUrl(): string | null {
+  return typeof MAIN_WINDOW_VITE_DEV_SERVER_URL === 'string'
+    ? MAIN_WINDOW_VITE_DEV_SERVER_URL
+    : null
+}
+
+function rendererName(): string {
+  return typeof MAIN_WINDOW_VITE_NAME === 'string' ? MAIN_WINDOW_VITE_NAME : 'main_window'
+}
+
+// Sized for the pill at its widest (speaking, with a stop button), not for a
+// dialog. The window is wider than the idle pill so it can grow without a
+// resize; the surrounding area is click-through.
+const HUD_WIDTH = 330
+const HUD_HEIGHT = 44
+const HUD_EDGE_MARGIN = 16
+const HUD_BOTTOM_MARGIN = 52
 
 let home: BrowserWindow | null = null
 let hud: BrowserWindow | null = null
 let audio: BrowserWindow | null = null
 
 function preloadPath(): string {
-  return path.join(__dirname, '../preload/index.js')
+  // main.js and preload.js are emitted side by side into .vite/build.
+  return path.join(__dirname, 'preload.js')
 }
 
 function loadRoute(window: BrowserWindow, route: 'home' | 'hud' | 'audio'): void {
-  if (MAIN_WINDOW_VITE_DEV_SERVER_URL) {
-    window.loadURL(`${MAIN_WINDOW_VITE_DEV_SERVER_URL}/src/renderer/${route}/index.html`)
+  const devUrl = devServerUrl()
+
+  if (devUrl) {
+    void window.loadURL(`${devUrl}/src/renderer/${route}/index.html`)
     return
   }
-  window.loadFile(
-    path.join(__dirname, `../renderer/${MAIN_WINDOW_VITE_NAME}/src/renderer/${route}/index.html`),
+
+  void window.loadFile(
+    path.join(__dirname, `../renderer/${rendererName()}/src/renderer/${route}/index.html`),
   )
+}
+
+interface Bounds {
+  width: number
+  height: number
+  x?: number
+  y?: number
+}
+
+const DEFAULT_BOUNDS: Bounds = { width: 1060, height: 760 }
+
+function boundsPath(): string {
+  return path.join(app.getPath('userData'), 'window-state.json')
+}
+
+/**
+ * Restores the last window position, but only if it still lands on a display
+ * that exists — otherwise unplugging a monitor strands the window offscreen.
+ */
+function loadBounds(): Bounds {
+  let saved: Bounds
+  try {
+    saved = { ...DEFAULT_BOUNDS, ...(JSON.parse(fs.readFileSync(boundsPath(), 'utf8')) as Bounds) }
+  } catch {
+    return DEFAULT_BOUNDS
+  }
+
+  if (saved.x === undefined || saved.y === undefined) return saved
+
+  const visible = screen.getAllDisplays().some((display) => {
+    const { x, y, width, height } = display.workArea
+    return (
+      saved.x! >= x - 100 &&
+      saved.y! >= y - 40 &&
+      saved.x! < x + width &&
+      saved.y! < y + height
+    )
+  })
+
+  return visible ? saved : { width: saved.width, height: saved.height }
+}
+
+function saveBounds(window: BrowserWindow): void {
+  if (window.isDestroyed() || window.isMinimized() || window.isFullScreen()) return
+  try {
+    fs.writeFileSync(boundsPath(), JSON.stringify(window.getNormalBounds()))
+  } catch {
+    // Losing window position is not worth surfacing to the user.
+  }
+}
+
+/**
+ * Bell lives in the menu bar, so the dock icon only appears while the Home
+ * window is open. Without this the dock shows a permanently running app the
+ * user has no window for.
+ */
+function syncDockVisibility(): void {
+  const shouldShow = home !== null && !home.isDestroyed()
+  if (shouldShow) {
+    void app.dock?.show()
+  } else {
+    app.dock?.hide()
+  }
 }
 
 export function createHome(): BrowserWindow {
@@ -40,22 +127,38 @@ export function createHome(): BrowserWindow {
     return home
   }
 
+  const bounds = loadBounds()
+
   home = new BrowserWindow({
-    width: 1060,
-    height: 760,
-    minWidth: 720,
-    minHeight: 520,
+    ...bounds,
+    minWidth: 760,
+    minHeight: 540,
     title: 'Bell',
+    // Inset traffic lights over a vibrant background is the standard look for a
+    // single-view Mac app with no toolbar.
     titleBarStyle: 'hiddenInset',
-    backgroundColor: '#0f1115',
+    trafficLightPosition: { x: 18, y: 20 },
+    vibrancy: 'under-window',
+    visualEffectState: 'active',
+    backgroundColor: nativeTheme.shouldUseDarkColors ? '#00000000' : '#00000000',
     show: false,
     webPreferences: { preload: preloadPath() },
   })
 
   loadRoute(home, 'home')
-  home.once('ready-to-show', () => home?.show())
+
+  home.once('ready-to-show', () => {
+    home?.show()
+    syncDockVisibility()
+  })
+
+  home.on('resize', () => home && saveBounds(home))
+  home.on('move', () => home && saveBounds(home))
+
+  home.on('close', () => home && saveBounds(home))
   home.on('closed', () => {
     home = null
+    syncDockVisibility()
   })
 
   return home
@@ -69,24 +172,49 @@ export function createHud(): BrowserWindow {
   hud = new BrowserWindow({
     width: HUD_WIDTH,
     height: HUD_HEIGHT,
-    x: Math.round(workArea.x + (workArea.width - HUD_WIDTH) / 2),
+    // Bottom-right, out of the way of window content and the dock's centre.
+    x: workArea.x + workArea.width - HUD_WIDTH - HUD_EDGE_MARGIN,
     y: workArea.y + workArea.height - HUD_HEIGHT - HUD_BOTTOM_MARGIN,
     frame: false,
     transparent: true,
     resizable: false,
     movable: false,
+    closable: false,
+    minimizable: false,
+    maximizable: false,
+    fullscreenable: false,
     skipTaskbar: true,
     focusable: false,
     show: false,
     alwaysOnTop: true,
     hasShadow: false,
-    webPreferences: { preload: preloadPath() },
+    // The card draws its own corners; native rounding would clip the shadow.
+    roundedCorners: false,
+    // A panel floats over full-screen apps in a way a normal window cannot.
+    type: 'panel',
+    hiddenInMissionControl: true,
+    webPreferences: {
+      preload: preloadPath(),
+      // The indicator animates while unfocused, so it must keep drawing.
+      backgroundThrottling: false,
+    },
   })
 
-  // Visible on every space, and above full-screen apps, so reading works
-  // wherever the user happens to be.
-  hud.setVisibleOnAllWorkspaces(true, { visibleOnFullScreen: true })
+  // Visible on every space and above full-screen apps, so the indicator is
+  // present wherever the user happens to be reading.
+  // skipTransformProcessType matters for a menu-bar app: without it, showing
+  // this window flips the activation policy and makes a dock icon flash.
+  hud.setVisibleOnAllWorkspaces(true, {
+    visibleOnFullScreen: true,
+    skipTransformProcessType: true,
+  })
   hud.setAlwaysOnTop(true, 'screen-saver')
+  hud.setFullScreenable(false)
+
+  // The window is a transparent rectangle much larger than the visible card, so
+  // it starts click-through. The renderer re-enables mouse events only while the
+  // pointer is genuinely over the card.
+  hud.setIgnoreMouseEvents(true, { forward: true })
 
   loadRoute(hud, 'hud')
   hud.on('closed', () => {
@@ -114,8 +242,14 @@ export function createAudio(): BrowserWindow {
   return audio
 }
 
+export function setHudInteractive(interactive: boolean): void {
+  if (!hud || hud.isDestroyed()) return
+  hud.setIgnoreMouseEvents(!interactive, { forward: true })
+}
+
 export function showHud(): void {
   const window = createHud()
+  // showInactive keeps focus in whatever app the user was reading from.
   if (!window.isVisible()) window.showInactive()
 }
 

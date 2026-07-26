@@ -49,6 +49,46 @@ export function save(patch: Partial<Settings>): Settings {
   return next
 }
 
+/**
+ * Reads ELEVEN_LABS_API_KEY from a .env file next to the project, or from the
+ * process environment. This is a convenience for development — a key saved
+ * through Settings always wins, so the two cannot disagree confusingly.
+ */
+function apiKeyFromEnvironment(): string | null {
+  const fromProcess = process.env.ELEVEN_LABS_API_KEY?.trim()
+  if (fromProcess) return fromProcess
+
+  const candidates = [
+    path.join(app.getAppPath(), '.env'),
+    path.join(process.cwd(), '.env'),
+    path.join(app.getPath('userData'), '.env'),
+  ]
+
+  for (const candidate of candidates) {
+    let contents: string
+    try {
+      contents = fs.readFileSync(candidate, 'utf8')
+    } catch {
+      continue
+    }
+
+    for (const line of contents.split('\n')) {
+      const match = line.match(/^\s*(?:export\s+)?ELEVEN_LABS_API_KEY\s*=\s*(.*)$/)
+      if (!match) continue
+
+      // Strip surrounding quotes and any trailing comment on an unquoted value.
+      const raw = match[1].trim()
+      const value = /^(['"])(.*)\1$/.test(raw)
+        ? raw.slice(1, -1)
+        : raw.replace(/\s+#.*$/, '').trim()
+
+      if (value.length > 0) return value
+    }
+  }
+
+  return null
+}
+
 export function setApiKey(key: string): void {
   if (key.length === 0) {
     fs.rmSync(keyPath(), { force: true })
@@ -64,11 +104,15 @@ export function setApiKey(key: string): void {
 
 export function getApiKey(): string | null {
   try {
-    const encrypted = fs.readFileSync(keyPath())
-    return safeStorage.decryptString(encrypted)
+    return safeStorage.decryptString(fs.readFileSync(keyPath()))
   } catch {
-    return null
+    return apiKeyFromEnvironment()
   }
+}
+
+/** True when the key came from .env rather than Settings, so the UI can say so. */
+export function apiKeyIsFromEnvironment(): boolean {
+  return !fs.existsSync(keyPath()) && apiKeyFromEnvironment() !== null
 }
 
 export function hasApiKey(): boolean {

@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import type { CodePolicy, Settings } from '@/shared/types'
 import type { Voice } from '@/main/services/elevenlabs'
+import { ShortcutRecorder } from './ShortcutRecorder'
 import { formatBytes } from './format'
 
 interface Props {
@@ -127,15 +128,14 @@ export function SettingsModal({ settings, onClose, onSaved }: Props) {
           </section>
 
           <section className="field">
-            <label htmlFor="hotkey">Shortcut</label>
-            <input
-              id="hotkey"
+            <label>Read selection shortcut</label>
+            <ShortcutRecorder
               value={draft.hotkey}
-              onChange={(event) => update('hotkey', event.target.value)}
+              onChange={(accelerator) => update('hotkey', accelerator)}
             />
             <p className="field__hint">
-              An Electron accelerator, e.g. <code>Alt+`</code> or <code>Cmd+Shift+S</code>. A bare
-              backtick would swallow the key everywhere, so a modifier is required.
+              Press the combination you want. A modifier is required — a bare key would be
+              swallowed system-wide, so you could never type it anywhere else.
             </p>
           </section>
 
@@ -191,6 +191,32 @@ export function SettingsModal({ settings, onClose, onSaved }: Props) {
               value={draft.maxChars}
               onChange={(event) => update('maxChars', Number(event.target.value))}
             />
+          </section>
+
+          <section className="field">
+            <label className="radio">
+              <input
+                type="checkbox"
+                checked={draft.showIndicator}
+                onChange={(event) => update('showIndicator', event.target.checked)}
+              />
+              <span>
+                Show the indicator
+                <em>A small pill stays onscreen so you can see Bell is running.</em>
+              </span>
+            </label>
+
+            <label className="radio">
+              <input
+                type="checkbox"
+                checked={draft.launchAtLogin}
+                onChange={(event) => update('launchAtLogin', event.target.checked)}
+              />
+              <span>
+                Launch at login
+                <em>Bell starts in the menu bar when you log in.</em>
+              </span>
+            </label>
           </section>
 
           <section className="field">

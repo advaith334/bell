@@ -1,4 +1,4 @@
-import type { BellAudioApi } from '@/preload'
+import type { BellAudioApi } from '@/preload/preload'
 
 /**
  * Gapless streaming playback. Chunks arrive as complete mp3 buffers and are

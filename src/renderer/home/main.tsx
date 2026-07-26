@@ -2,6 +2,7 @@ import { createRoot } from 'react-dom/client'
 import { useCallback, useEffect, useState } from 'react'
 import type { Settings, Stats, TopSource, Utterance } from '@/shared/types'
 import { DEFAULT_SETTINGS } from '@/shared/types'
+import { formatAccelerator } from '@/shared/shortcut'
 import { RecentlyRead } from './RecentlyRead'
 import { StatCards, TopSources } from './Sidebar'
 import { SettingsModal } from './SettingsModal'
@@ -31,7 +32,7 @@ function Header({
             <>Welcome back</>
           ) : (
             <>
-              Highlight anything and press <kbd>{hotkey}</kbd>
+              Highlight anything and press <kbd>{formatAccelerator(hotkey)}</kbd>
             </>
           )}
         </h1>
@@ -90,7 +91,14 @@ function App() {
   useEffect(() => {
     void window.bell.getSettings().then(setSettings)
     void window.bell.permissionStatus().then(setHasPermission)
-    return window.bell.onHistoryChanged(() => void refresh())
+
+    const unsubscribeHistory = window.bell.onHistoryChanged(() => void refresh())
+    const unsubscribeSettings = window.bell.onOpenSettings(() => setShowSettings(true))
+
+    return () => {
+      unsubscribeHistory()
+      unsubscribeSettings()
+    }
   }, [refresh])
 
   const handleDelete = async (id: string) => {
@@ -100,6 +108,7 @@ function App() {
 
   return (
     <div className="page">
+      <div className="titlebar" />
       <Header
         total={stats.total}
         hotkey={settings.hotkey}

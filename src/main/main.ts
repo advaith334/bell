@@ -1,5 +1,8 @@
 import { app, BrowserWindow, globalShortcut, ipcMain, Menu, Tray, nativeImage } from 'electron'
+import path from 'node:path'
 import { IPC } from '@/shared/ipc'
+import { formatAccelerator } from '@/shared/shortcut'
+import { buildApplicationMenu } from './menu'
 import type { PlaybackStatus, Settings } from '@/shared/types'
 import * as db from './db'
 import * as cache from './services/cache'
@@ -19,6 +22,10 @@ let hudTimer: NodeJS.Timeout | null = null
 
 if (require('electron-squirrel-startup')) app.quit()
 
+// Without this the menu bar and About panel say "Electron" in development,
+// because the name is read from the binary rather than package.json.
+app.setName('Bell')
+
 function scheduleHudHide(delay: number): void {
   if (hudTimer) clearTimeout(hudTimer)
   hudTimer = setTimeout(() => {
@@ -30,23 +37,32 @@ function scheduleHudHide(delay: number): void {
 function onStatus(status: PlaybackStatus): void {
   windows.broadcast(IPC.status, status)
 
-  if (status.state === 'idle') {
-    scheduleHudHide(HUD_LINGER_MS)
-    windows.broadcast(IPC.historyChanged)
-    return
-  }
-
-  if (status.state === 'error') {
-    windows.showHud()
-    scheduleHudHide(HUD_ERROR_MS)
-    return
-  }
-
   if (hudTimer) {
     clearTimeout(hudTimer)
     hudTimer = null
   }
+
+  // With the ambient indicator on, the pill never hides — it just returns to
+  // its idle state, which is the point: Bell stays visibly available.
+  const keepVisible = settings.load().showIndicator
+
+  if (status.state === 'idle') {
+    windows.broadcast(IPC.historyChanged)
+    if (keepVisible) windows.showHud()
+    else scheduleHudHide(HUD_LINGER_MS)
+    return
+  }
+
   windows.showHud()
+
+  // An error still needs to clear itself; it falls back to idle, not hidden.
+  if (status.state === 'error') {
+    hudTimer = setTimeout(() => {
+      windows.broadcast(IPC.status, { state: 'idle' } satisfies PlaybackStatus)
+      if (!keepVisible) windows.hideHud()
+      hudTimer = null
+    }, HUD_ERROR_MS)
+  }
 }
 
 function onAudio(utteranceId: string, chunkIndex: number, audio: Buffer, isLast: boolean): void {
@@ -63,32 +79,51 @@ function onAudio(utteranceId: string, chunkIndex: number, audio: Buffer, isLast:
   })
 }
 
+function resetAudio(): void {
+  windows.getAudio()?.webContents.send(IPC.audioReset)
+}
+
 function registerHotkey(accelerator: string): boolean {
   globalShortcut.unregisterAll()
   try {
-    return globalShortcut.register(accelerator, () => {
-      windows.getAudio()?.webContents.send(IPC.audioReset)
-      void reader.read()
-    })
+    // reader.read() toggles: pressing again while speaking stops.
+    return globalShortcut.register(accelerator, () => void reader.read())
   } catch {
     return false
   }
 }
 
+function assetPath(name: string): string {
+  // Packaged builds get assets from extraResource; development reads the repo.
+  return app.isPackaged
+    ? path.join(process.resourcesPath, name)
+    : path.join(app.getAppPath(), 'assets', name)
+}
+
+function openSettings(): void {
+  windows.createHome().webContents.send(IPC.openSettings)
+}
+
 function buildTray(): void {
-  // An empty image keeps the tray slot without shipping an icon asset; the
-  // title text is what identifies it in the menu bar.
-  tray = new Tray(nativeImage.createEmpty())
-  tray.setTitle('🔔')
-  tray.setToolTip('Bell')
+  const icon = nativeImage.createFromPath(assetPath('trayTemplate.png'))
+  // A template image lets macOS invert the icon for dark mode and for the
+  // highlighted state, which is what makes it look native rather than pasted on.
+  icon.setTemplateImage(true)
+
+  const config = settings.load()
+
+  tray = new Tray(icon.isEmpty() ? nativeImage.createEmpty() : icon)
+  if (icon.isEmpty()) tray.setTitle('Bell')
+  tray.setToolTip(`Bell — press ${formatAccelerator(config.hotkey)} to read the selection`)
 
   const menu = Menu.buildFromTemplate([
-    { label: 'Read selection', click: () => void reader.read() },
+    { label: 'Read Selection', accelerator: config.hotkey, click: () => void reader.read() },
     { label: 'Stop', click: () => reader.stop() },
     { type: 'separator' },
-    { label: 'Open Bell', click: () => windows.createHome() },
+    { label: 'Bell Home', click: () => windows.createHome() },
+    { label: 'Settings…', accelerator: 'Command+,', click: () => openSettings() },
     { type: 'separator' },
-    { label: 'Quit', click: () => app.quit() },
+    { label: 'Quit Bell', accelerator: 'Command+Q', click: () => app.quit() },
   ])
   tray.setContextMenu(menu)
 }
@@ -114,6 +149,11 @@ function registerIpc(): void {
   ipcMain.handle(IPC.saveSettings, (_event, patch: Partial<Settings>) => {
     const next = settings.save(patch)
     if (patch.hotkey) registerHotkey(next.hotkey)
+    if (patch.launchAtLogin !== undefined) applyLoginItem(next.launchAtLogin)
+    if (patch.showIndicator !== undefined) {
+      if (next.showIndicator) windows.showHud()
+      else windows.hideHud()
+    }
     return next
   })
   ipcMain.handle(IPC.setApiKey, (_event, key: string) => {
@@ -143,25 +183,51 @@ function registerIpc(): void {
   ipcMain.on(IPC.audioError, (_event, message: string) => {
     onStatus({ state: 'error', error: message })
   })
+  ipcMain.on(IPC.hudInteractive, (_event, interactive: boolean) => {
+    windows.setHudInteractive(interactive)
+  })
+}
+
+function applyLoginItem(enabled: boolean): void {
+  // Unsigned development builds cannot register a login item, and macOS reports
+  // that as a hard error. Skip when already in the desired state so a default
+  // install never trips it, and treat failure as non-fatal.
+  try {
+    if (app.getLoginItemSettings().openAtLogin === enabled) return
+    app.setLoginItemSettings({ openAtLogin: enabled, openAsHidden: true })
+  } catch {
+    // Surfaces in Settings as the toggle simply not sticking.
+  }
 }
 
 app.whenReady().then(() => {
   db.open()
-  reader.init({ onStatus, onAudio })
+  reader.init({ onStatus, onAudio, onReset: resetAudio })
+
+  const config = settings.load()
 
   registerIpc()
+  buildApplicationMenu({
+    openHome: () => windows.createHome(),
+    openSettings,
+    readSelection: () => void reader.read(),
+    stop: () => reader.stop(),
+  })
+
   windows.createAudio()
   windows.createHud()
   windows.createHome()
   buildTray()
+  applyLoginItem(config.launchAtLogin)
 
-  const config = settings.load()
+  if (config.showIndicator) windows.showHud()
+
   console.log(`[bell] ready — hotkey ${config.hotkey}, accessibility ${selection.hasAccessibilityPermission()}`)
   if (!registerHotkey(config.hotkey)) {
     // Most often means another app already owns the combination.
     onStatus({
       state: 'error',
-      error: `Could not register the ${config.hotkey} shortcut. Pick another in Settings.`,
+      error: `Could not register ${formatAccelerator(config.hotkey)}. Pick another in Settings.`,
     })
   }
 
@@ -182,5 +248,12 @@ app.on('window-all-closed', () => {
 })
 
 if (process.platform === 'darwin') {
-  app.setAboutPanelOptions({ applicationName: 'Bell', applicationVersion: app.getVersion() })
+  app.setAboutPanelOptions({
+    applicationName: 'Bell',
+    applicationVersion: app.getVersion(),
+    copyright: 'Highlight anything and hear it read back.',
+  })
+  // Menu-bar first: the dock icon appears only while the Home window is open,
+  // which windows.ts manages. Hiding it here avoids a dock flash at launch.
+  app.dock?.hide()
 }
