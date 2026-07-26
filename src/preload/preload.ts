@@ -85,8 +85,8 @@ const audioApi = {
   error: (message: string) => ipcRenderer.send(IPC.audioError, message),
 }
 
-contextBridge.exposeInMainWorld('bell', api)
-contextBridge.exposeInMainWorld('bellAudio', audioApi)
+contextBridge.exposeInMainWorld('pilcrow', api)
+contextBridge.exposeInMainWorld('pilcrowAudio', audioApi)
 
-export type BellApi = typeof api
-export type BellAudioApi = typeof audioApi
+export type PilcrowApi = typeof api
+export type PilcrowAudioApi = typeof audioApi

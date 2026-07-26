@@ -1,10 +1,10 @@
-# Bell
+# Pilcrow
 
 Highlight text anywhere on macOS, press a hotkey, and hear it read back to you in an
 ElevenLabs voice — with pauses where paragraphs actually are, and none of the
 line-by-line stutter that makes most read-aloud tools unbearable on terminal output.
 
-Bell is Wispr Flow inverted. Flow is `speech → text → active app`; Bell is
+Pilcrow is Wispr Flow inverted. Flow is `speech → text → active app`; Pilcrow is
 `selection → cleanup → speech`.
 
 ## Requirements
@@ -18,7 +18,7 @@ Bell is Wispr Flow inverted. Flow is `speech → text → active app`; Bell is
 
 ```bash
 npm install
-npm run build:helper   # compiles swift-helper/dist/bell-helper
+npm run build:helper   # compiles swift-helper/dist/pilcrow-helper
 npm start
 ```
 
@@ -36,9 +36,9 @@ confusingly.
 
 ## Using it
 
-Bell lives in the menu bar, not the dock — the dock icon appears only while the
+Pilcrow lives in the menu bar, not the dock — the dock icon appears only while the
 Home window is open. A small pill sits in the bottom-right corner so you can see
-Bell is running: a quiet dot when idle, a level meter and a stop button while
+Pilcrow is running: a quiet dot when idle, a level meter and a stop button while
 speaking. Click it to start or stop, or press the shortcut (⌥` by default).
 The pill is click-through everywhere except the pill itself, so it never eats a
 click meant for the window behind it.
@@ -53,13 +53,13 @@ Electron must stay on a build whose bundled Node provides **N-API 10 or newer**
 (Electron 35+; this repo is on 43). `better-sqlite3` ships a prebuilt binary
 targeting N-API 10, and on an older Electron it does not fail gracefully — it
 segfaults during native module registration, so the app dies before any window
-appears with no error message. If you ever downgrade Electron and Bell starts
+appears with no error message. If you ever downgrade Electron and Pilcrow starts
 silently failing to launch, this is why.
 
 ## How it works
 
 ```
-hotkey → bell-helper → normalize → chunk → ElevenLabs → MediaSource playback
+hotkey → pilcrow-helper → normalize → chunk → ElevenLabs → MediaSource playback
                                       ↓
                                   SQLite history → Home page
 ```
@@ -107,7 +107,7 @@ week, streak, listening time), and top source apps.
 ## Development
 
 ```bash
-npm test        # 34 tests over the text pipeline
+npm test        # 40 tests
 npm run typecheck
 ```
 

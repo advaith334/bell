@@ -1,6 +1,6 @@
 {
-  "name": "bell",
-  "productName": "Bell",
+  "name": "pilcrow",
+  "productName": "Pilcrow",
   "version": "0.1.0",
   "description": "Highlight any text, hit a hotkey, hear it read aloud",
   "main": ".vite/build/main.js",

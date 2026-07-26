@@ -1,3 +1,5 @@
+@import '../shared/tokens.css';
+
 * {
   box-sizing: border-box;
 }
@@ -5,15 +7,15 @@
 body {
   margin: 0;
   background: transparent;
-  font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Text', system-ui, sans-serif;
+  font-family: var(--font-sans);
   overflow: hidden;
   -webkit-user-select: none;
   user-select: none;
   cursor: default;
 }
 
-/* The window is wider than the pill so the pill can grow without resizing the
-   window. Everything outside the pill is click-through. */
+/* The window is wider than the pill so it can grow without a resize.
+   Everything outside the pill is click-through. */
 .hud {
   display: flex;
   align-items: center;
@@ -25,139 +27,145 @@ body {
 .pill {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 9px;
   max-width: 100%;
-  height: 30px;
-  padding: 0 6px 0 10px;
-  border-radius: 15px;
-  background: rgba(20, 22, 28, 0.82);
-  border: 0.5px solid rgba(255, 255, 255, 0.12);
-  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.32);
-  backdrop-filter: blur(24px) saturate(160%);
-  color: rgba(255, 255, 255, 0.92);
-  font-size: 12px;
+  height: 32px;
+  padding: 0 6px 0 11px;
+  border-radius: var(--radius-full);
+  background: rgba(26, 26, 26, 0.72);
+  border: 0.5px solid rgba(233, 232, 225, 0.14);
+  box-shadow:
+    0 2px 6px rgba(0, 0, 0, 0.22),
+    0 8px 24px -6px rgba(0, 0, 0, 0.42);
+  backdrop-filter: blur(26px) saturate(180%);
+  color: rgba(244, 243, 238, 0.94);
+  font-size: 12.5px;
+  font-weight: 500;
   line-height: 1;
+  cursor: pointer;
   transition:
-    opacity 0.22s ease,
-    transform 0.22s ease,
-    background 0.22s ease;
+    opacity var(--duration-base) var(--spring),
+    transform var(--duration-base) var(--spring),
+    border-color var(--duration-base) var(--spring),
+    background var(--duration-base) var(--spring),
+    box-shadow var(--duration-base) var(--spring);
 }
 
-/* Ambient state: small and wordless — present without demanding anything, but
-   still legible on a dark desktop, since being visible is the whole job. */
+.pill:active {
+  transform: scale(0.96);
+}
+
+/* Ambient: small and wordless — present without demanding anything. */
 .pill--idle {
   gap: 0;
-  padding: 0 9px;
-  opacity: 0.62;
-  transform: scale(0.94);
+  padding: 0 10px;
+  opacity: 0.66;
+  transform: scale(0.92);
 }
 
 .pill--idle:hover {
   opacity: 1;
-}
-
-/* A quiet accent pulse reads as "running" rather than "stuck". */
-.pill--idle .pill__dot {
-  background: #6ea8ff;
-  box-shadow: 0 0 0 3px rgba(110, 168, 255, 0.16);
-  animation: breathe 3.4s ease-in-out infinite;
-}
-
-@keyframes breathe {
-  0%,
-  100% {
-    opacity: 0.55;
-  }
-  50% {
-    opacity: 1;
-  }
+  transform: scale(1);
 }
 
 .pill--speaking {
-  border-color: rgba(110, 168, 255, 0.34);
+  border-color: var(--accent-line);
+  background: rgba(26, 26, 26, 0.82);
 }
 
 .pill--error {
-  border-color: rgba(255, 138, 138, 0.4);
-  color: #ffd9d9;
+  border-color: rgba(248, 113, 113, 0.42);
+  color: #ffdcdc;
 }
 
 .pill__label {
-  max-width: 210px;
+  max-width: 208px;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-  font-weight: 500;
-  letter-spacing: 0.01em;
+  animation: label-in var(--duration-base) var(--spring) both;
 }
 
+/* Idle dot: a slow breath reads as "running", not "stuck". */
 .pill__dot {
+  flex: 0 0 auto;
   width: 6px;
   height: 6px;
-  border-radius: 50%;
-  background: rgba(255, 255, 255, 0.8);
-  flex: 0 0 auto;
+  border-radius: var(--radius-full);
+  background: var(--dawn);
+  box-shadow: 0 0 0 3px rgba(240, 215, 255, 0.14);
+  animation: breathe 3.4s ease-in-out infinite;
 }
 
 .pill__warn {
   flex: 0 0 auto;
   font-weight: 700;
-  color: #ff8a8a;
+  color: var(--destructive-400);
 }
 
 .pill__spinner {
   flex: 0 0 auto;
-  width: 11px;
-  height: 11px;
-  border-radius: 50%;
-  border: 1.5px solid rgba(255, 255, 255, 0.22);
-  border-top-color: #6ea8ff;
-  animation: spin 0.7s linear infinite;
+  width: 12px;
+  height: 12px;
+  border-radius: var(--radius-full);
+  border: 1.5px solid rgba(244, 243, 238, 0.2);
+  border-top-color: var(--dawn);
+  animation: spin 0.68s linear infinite;
 }
 
-/* A level meter rather than a progress bar: playback length is not known up
+/* A level meter, not a progress bar: total playback length is not known up
    front, so a filling bar would be a lie. */
 .pill__bars {
   display: flex;
   align-items: center;
   gap: 2px;
-  height: 13px;
+  height: 14px;
   flex: 0 0 auto;
 }
 
 .pill__bars i {
   display: block;
-  width: 2px;
+  width: 2.5px;
   height: 100%;
-  border-radius: 1px;
-  background: #6ea8ff;
+  border-radius: var(--radius-full);
+  background: var(--dawn);
   transform-origin: center;
-  animation: level 0.85s ease-in-out infinite;
+  animation: level 0.9s ease-in-out infinite;
 }
 
 .pill__stop {
   flex: 0 0 auto;
   display: grid;
   place-items: center;
-  width: 20px;
-  height: 20px;
-  border-radius: 50%;
+  width: 21px;
+  height: 21px;
+  border-radius: var(--radius-full);
   border: none;
-  background: rgba(255, 255, 255, 0.1);
-  color: rgba(255, 255, 255, 0.82);
-  font-size: 9px;
+  background: rgba(244, 243, 238, 0.12);
+  color: rgba(244, 243, 238, 0.86);
   cursor: pointer;
+  transition: all var(--duration-fast) var(--spring);
 }
 
 .pill__stop:hover {
-  background: rgba(255, 255, 255, 0.2);
-  color: #fff;
+  background: var(--dawn);
+  color: #2a1638;
+  transform: scale(1.08);
+}
+
+.pill__stop:active {
+  transform: scale(0.9);
+}
+
+.pill__stop svg {
+  width: 8px;
+  height: 8px;
 }
 
 @keyframes level {
   0%,
   100% {
-    transform: scaleY(0.32);
+    transform: scaleY(0.28);
   }
   50% {
     transform: scaleY(1);
@@ -170,19 +178,57 @@ body {
   }
 }
 
+@keyframes breathe {
+  0%,
+  100% {
+    opacity: 0.5;
+    box-shadow: 0 0 0 2px rgba(240, 215, 255, 0.1);
+  }
+  50% {
+    opacity: 1;
+    box-shadow: 0 0 0 4px rgba(240, 215, 255, 0.16);
+  }
+}
+
+@keyframes label-in {
+  from {
+    opacity: 0;
+    transform: translateX(-4px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
 @media (prefers-color-scheme: light) {
   .pill {
-    background: rgba(250, 250, 252, 0.86);
-    border-color: rgba(0, 0, 0, 0.1);
-    color: #1b1e25;
+    background: rgba(252, 252, 251, 0.86);
+    border-color: rgba(26, 26, 26, 0.1);
+    color: var(--vast-950);
   }
 
-  .pill__dot {
-    background: rgba(0, 0, 0, 0.55);
+  .pill--speaking {
+    background: rgba(252, 252, 251, 0.94);
+  }
+
+  .pill__dot,
+  .pill__bars i {
+    background: var(--chord);
+  }
+
+  .pill__spinner {
+    border-color: rgba(26, 26, 26, 0.14);
+    border-top-color: var(--chord);
   }
 
   .pill__stop {
-    background: rgba(0, 0, 0, 0.08);
-    color: rgba(0, 0, 0, 0.7);
+    background: rgba(26, 26, 26, 0.08);
+    color: rgba(26, 26, 26, 0.72);
+  }
+
+  .pill__stop:hover {
+    background: var(--chord);
+    color: #fff;
   }
 }

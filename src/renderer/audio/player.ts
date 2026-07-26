@@ -1,4 +1,4 @@
-import type { BellAudioApi } from '@/preload/preload'
+import type { PilcrowAudioApi } from '@/preload/preload'
 
 /**
  * Gapless streaming playback. Chunks arrive as complete mp3 buffers and are
@@ -8,7 +8,7 @@ import type { BellAudioApi } from '@/preload/preload'
 
 declare global {
   interface Window {
-    bellAudio: BellAudioApi
+    pilcrowAudio: PilcrowAudioApi
   }
 }
 
@@ -67,7 +67,7 @@ function drain(): void {
   try {
     sourceBuffer.appendBuffer(new Uint8Array(next.audio))
   } catch (error) {
-    window.bellAudio.error(error instanceof Error ? error.message : 'Audio append failed.')
+    window.pilcrowAudio.error(error instanceof Error ? error.message : 'Audio append failed.')
   }
 }
 
@@ -92,7 +92,7 @@ function ensureStream(utteranceId: string): Promise<void> {
         try {
           sourceBuffer = source.addSourceBuffer(MIME)
         } catch (error) {
-          window.bellAudio.error(
+          window.pilcrowAudio.error(
             error instanceof Error ? error.message : 'This system cannot decode mp3 streams.',
           )
           resolve()
@@ -108,7 +108,7 @@ function ensureStream(utteranceId: string): Promise<void> {
   })
 }
 
-window.bellAudio.onChunk(async (payload) => {
+window.pilcrowAudio.onChunk(async (payload) => {
   await ensureStream(payload.utteranceId)
 
   queue.push({
@@ -124,20 +124,20 @@ window.bellAudio.onChunk(async (payload) => {
     // Autoplay is permitted here because the window is app-owned and the action
     // is user-initiated via the hotkey.
     void player.play().catch((error: unknown) => {
-      window.bellAudio.error(error instanceof Error ? error.message : 'Playback failed.')
+      window.pilcrowAudio.error(error instanceof Error ? error.message : 'Playback failed.')
     })
   }
 })
 
-window.bellAudio.onReset(() => {
+window.pilcrowAudio.onReset(() => {
   teardown()
 })
 
 player.addEventListener('ended', () => {
-  if (activeUtteranceId) window.bellAudio.finished(activeUtteranceId)
+  if (activeUtteranceId) window.pilcrowAudio.finished(activeUtteranceId)
 })
 
 player.addEventListener('error', () => {
   const message = player.error?.message ?? 'Audio playback error.'
-  window.bellAudio.error(message)
+  window.pilcrowAudio.error(message)
 })

@@ -4,8 +4,8 @@ import { VitePlugin } from '@electron-forge/plugin-vite'
 
 const config: ForgeConfig = {
   packagerConfig: {
-    name: 'Bell',
-    appBundleId: 'ai.bell.app',
+    name: 'Pilcrow',
+    appBundleId: 'com.pilcrow.app',
     appCategoryType: 'public.app-category.productivity',
     icon: 'assets/icon',
     asar: true,
@@ -13,7 +13,7 @@ const config: ForgeConfig = {
     // archive so it remains an executable file on disk. The tray images are
     // read at runtime by nativeImage, which cannot see inside the archive.
     extraResource: [
-      'swift-helper/dist/bell-helper',
+      'swift-helper/dist/pilcrow-helper',
       'assets/trayTemplate.png',
       'assets/trayTemplate@2x.png',
     ],
@@ -21,9 +21,9 @@ const config: ForgeConfig = {
       // Menu-bar app: no dock icon until the Home window opens.
       LSUIElement: true,
       NSHighResolutionCapable: true,
-      // Shown by macOS when Bell first asks for Accessibility.
+      // Shown by macOS when Pilcrow first asks for Accessibility.
       NSAccessibilityUsageDescription:
-        'Bell reads the text you have highlighted so it can speak it aloud.',
+        'Pilcrow reads the text you have highlighted so it can speak it aloud.',
     },
   },
   rebuildConfig: {},

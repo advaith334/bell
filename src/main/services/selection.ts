@@ -5,7 +5,7 @@ import path from 'node:path'
 import type { CaptureMethod, Selection } from '@/shared/types'
 
 /**
- * Wraps the bell-helper binary. The helper is spawned per capture rather than
+ * Wraps the pilcrow-helper binary. The helper is spawned per capture rather than
  * kept alive: a capture is a rare, user-initiated event, and a short-lived
  * process cannot leak accessibility handles or wedge the app if it hangs.
  */
@@ -34,9 +34,9 @@ interface HelperResponse {
 function helperPath(): string {
   // Packaged builds get the binary from extraResource; development runs use the
   // build output in the repo.
-  const packaged = path.join(process.resourcesPath, 'bell-helper')
+  const packaged = path.join(process.resourcesPath, 'pilcrow-helper')
   if (app.isPackaged || fs.existsSync(packaged)) return packaged
-  return path.join(app.getAppPath(), 'swift-helper', 'dist', 'bell-helper')
+  return path.join(app.getAppPath(), 'swift-helper', 'dist', 'pilcrow-helper')
 }
 
 export function hasAccessibilityPermission(): boolean {
@@ -50,8 +50,8 @@ export function requestAccessibilityPermission(): void {
 
 const FRIENDLY_ERRORS: Record<string, string> = {
   'accessibility-permission-denied':
-    'Bell needs Accessibility permission to read your selection.',
-  'secure-input-active': "This app is in a secure input mode, so Bell can't read from it.",
+    'Pilcrow needs Accessibility permission to read your selection.',
+  'secure-input-active': "This app is in a secure input mode, so Pilcrow can't read from it.",
   'no-selection': 'Nothing is selected.',
 }
 

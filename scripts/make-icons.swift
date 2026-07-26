@@ -1,19 +1,17 @@
 // Generates the app icon (.icns) and the menu bar template image.
 //
-// Both are drawn from the SF Symbol "bell.fill" so they match system iconography
-// exactly. Run via scripts/make-icons.sh; the output is committed, so this only
-// needs re-running when the artwork changes.
+// The mark is the pilcrow, ¶. It is the app's whole thesis in one glyph: the
+// pilcrow descends from the Greek paragraphos, a mark scribes drew to tell
+// someone reading aloud where to pause. Drawn from the system font so the
+// curves are properly typographic rather than hand-approximated.
+//
+// Run via scripts/make-icons.sh; the output is committed, so this only needs
+// re-running when the artwork changes.
 
 import AppKit
 import Foundation
 
 let outputRoot = CommandLine.arguments.count > 1 ? CommandLine.arguments[1] : "assets"
-
-func bellImage(pointSize: CGFloat, weight: NSFont.Weight) -> NSImage? {
-    let configuration = NSImage.SymbolConfiguration(pointSize: pointSize, weight: weight)
-    return NSImage(systemSymbolName: "bell.fill", accessibilityDescription: "Bell")?
-        .withSymbolConfiguration(configuration)
-}
 
 func writePNG(_ image: NSImage, to path: String) {
     guard let tiff = image.tiffRepresentation,
@@ -26,7 +24,25 @@ func writePNG(_ image: NSImage, to path: String) {
     try? data.write(to: URL(fileURLWithPath: path))
 }
 
-/// The rounded-square app icon: a blue gradient plate with a white bell.
+/// Draws a centred pilcrow filling the given box, in the given colour.
+func drawPilcrow(in box: NSRect, color: NSColor) {
+    // The glyph's drawn ink is shorter than its line height, so the font size is
+    // scaled up and the result is measured and centred rather than assumed.
+    let font = NSFont.systemFont(ofSize: box.height * 1.34, weight: .semibold)
+    let attributes: [NSAttributedString.Key: Any] = [.font: font, .foregroundColor: color]
+    let glyph = NSAttributedString(string: "\u{00B6}", attributes: attributes)
+
+    let measured = glyph.size()
+    let origin = NSPoint(
+        x: box.midX - measured.width / 2,
+        // Optical centring: the pilcrow's descender pulls its visual mass down,
+        // so nudge it up off the geometric centre.
+        y: box.midY - measured.height / 2 + box.height * 0.04,
+    )
+    glyph.draw(at: origin)
+}
+
+/// The rounded-square app icon: a violet plate with a white pilcrow.
 func makeAppIcon(size: CGFloat) -> NSImage {
     let image = NSImage(size: NSSize(width: size, height: size))
     image.lockFocus()
@@ -36,53 +52,35 @@ func makeAppIcon(size: CGFloat) -> NSImage {
     let plate = NSRect(x: inset, y: inset, width: size - inset * 2, height: size - inset * 2)
     let radius = plate.width * 0.2237 // Matches the macOS squircle proportion closely.
 
-    let path = NSBezierPath(roundedRect: plate, xRadius: radius, yRadius: radius)
+    let plateShape = NSBezierPath(roundedRect: plate, xRadius: radius, yRadius: radius)
     let gradient = NSGradient(
         colors: [
-            NSColor(srgbRed: 0.43, green: 0.66, blue: 1.0, alpha: 1.0),
-            NSColor(srgbRed: 0.16, green: 0.34, blue: 0.78, alpha: 1.0),
+            NSColor(srgbRed: 0.74, green: 0.48, blue: 0.95, alpha: 1.0),
+            NSColor(srgbRed: 0.29, green: 0.12, blue: 0.53, alpha: 1.0),
         ],
     )
-    gradient?.draw(in: path, angle: -90)
+    gradient?.draw(in: plateShape, angle: -90)
 
-    if let bell = bellImage(pointSize: plate.height * 0.52, weight: .medium) {
-        let tinted = NSImage(size: bell.size)
-        tinted.lockFocus()
-        NSColor.white.set()
-        NSRect(origin: .zero, size: bell.size).fill(using: .sourceOver)
-        bell.draw(at: .zero, from: NSRect(origin: .zero, size: bell.size), operation: .destinationIn, fraction: 1)
-        tinted.unlockFocus()
-
-        let target = NSRect(
-            x: plate.midX - tinted.size.width / 2,
-            y: plate.midY - tinted.size.height / 2,
-            width: tinted.size.width,
-            height: tinted.size.height,
-        )
-        tinted.draw(in: target)
-    }
+    let markBox = NSRect(
+        x: plate.minX,
+        y: plate.minY + plate.height * 0.26,
+        width: plate.width,
+        height: plate.height * 0.48,
+    )
+    drawPilcrow(in: markBox, color: .white)
 
     image.unlockFocus()
     return image
 }
 
-/// The menu bar icon: pure black on transparent, so macOS can treat it as a
-/// template and invert it automatically for dark mode and highlighted states.
+/// The menu bar icon: pure black on transparent, so macOS treats it as a
+/// template and inverts it for dark mode and highlighted states.
 func makeTrayIcon(size: CGFloat) -> NSImage {
     let image = NSImage(size: NSSize(width: size, height: size))
     image.lockFocus()
 
-    if let bell = bellImage(pointSize: size * 0.78, weight: .regular) {
-        let target = NSRect(
-            x: (size - bell.size.width) / 2,
-            y: (size - bell.size.height) / 2,
-            width: bell.size.width,
-            height: bell.size.height,
-        )
-        NSColor.black.set()
-        NSRect(origin: .zero, size: NSSize(width: size, height: size)).fill(using: .sourceOver)
-        bell.draw(in: target, from: NSRect(origin: .zero, size: bell.size), operation: .destinationIn, fraction: 1)
-    }
+    let markBox = NSRect(x: 0, y: size * 0.16, width: size, height: size * 0.68)
+    drawPilcrow(in: markBox, color: .black)
 
     image.unlockFocus()
     return image

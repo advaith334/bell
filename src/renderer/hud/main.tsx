@@ -2,22 +2,32 @@ import { createRoot } from 'react-dom/client'
 import { useEffect, useState } from 'react'
 import type { PlaybackStatus } from '@/shared/types'
 import { formatAccelerator } from '@/shared/shortcut'
+import { CloseIcon } from '../home/icons'
 import '../shared/global.d'
 import './hud.css'
 
 /**
  * A small always-present pill, not a dialog. Idle it is a dim dot that says
- * "Bell is running"; speaking it grows just enough to hold a level meter and a
+ * "Pilcrow is running"; speaking it grows just enough to hold a level meter and a
  * stop button. It must never be large enough to feel like an interruption.
  */
 
-const BAR_COUNT = 4
+/** Staggered durations keep the meter from looking like a metronome. */
+const BARS = [
+  { delay: 0, duration: 0.82 },
+  { delay: 0.16, duration: 1.04 },
+  { delay: 0.31, duration: 0.72 },
+  { delay: 0.09, duration: 0.94 },
+]
 
 function Bars() {
   return (
     <span className="pill__bars" aria-hidden>
-      {Array.from({ length: BAR_COUNT }, (_, index) => (
-        <i key={index} style={{ animationDelay: `${index * 0.13}s` }} />
+      {BARS.map((bar, index) => (
+        <i
+          key={index}
+          style={{ animationDelay: `${bar.delay}s`, animationDuration: `${bar.duration}s` }}
+        />
       ))}
     </span>
   )
@@ -28,11 +38,11 @@ function Pill() {
   const [hotkey, setHotkey] = useState('Alt+`')
   const [hovered, setHovered] = useState(false)
 
-  useEffect(() => window.bell.onStatus(setStatus), [])
+  useEffect(() => window.pilcrow.onStatus(setStatus), [])
 
   useEffect(() => {
-    void window.bell.getSettings().then((settings) => setHotkey(settings.hotkey))
-    return window.bell.onOpenSettings(() => undefined)
+    void window.pilcrow.getSettings().then((settings) => setHotkey(settings.hotkey))
+    return window.pilcrow.onOpenSettings(() => undefined)
   }, [])
 
   const { state } = status
@@ -43,7 +53,7 @@ function Pill() {
 
   const setInteractive = (interactive: boolean) => {
     setHovered(interactive)
-    window.bell.setHudInteractive(interactive)
+    window.pilcrow.setHudInteractive(interactive)
   }
 
   return (
@@ -61,8 +71,8 @@ function Pill() {
         onMouseLeave={() => setInteractive(false)}
         onClick={() => {
           // Click is a toggle: start a read when idle, stop when speaking.
-          if (isSpeaking || isBusy) void window.bell.stop()
-          else void window.bell.read()
+          if (isSpeaking || isBusy) void window.pilcrow.stop()
+          else void window.pilcrow.read()
         }}
         title={isIdle ? `Press ${formatAccelerator(hotkey)} to read the selection` : undefined}
       >
@@ -80,7 +90,7 @@ function Pill() {
                 ? 'Speaking'
                 : isBusy
                   ? 'Preparing'
-                  : `Bell · ${formatAccelerator(hotkey)}`}
+                  : `Pilcrow · ${formatAccelerator(hotkey)}`}
           </span>
         )}
 
@@ -91,10 +101,10 @@ function Pill() {
             title="Stop"
             onClick={(event) => {
               event.stopPropagation()
-              void window.bell.stop()
+              void window.pilcrow.stop()
             }}
           >
-            ✕
+            <CloseIcon />
           </button>
         )}
       </div>

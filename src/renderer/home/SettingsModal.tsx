@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import type { CodePolicy, Settings } from '@/shared/types'
 import type { Voice } from '@/main/services/elevenlabs'
 import { ShortcutRecorder } from './ShortcutRecorder'
+import { CloseIcon } from './icons'
 import { formatBytes } from './format'
 
 interface Props {
@@ -33,10 +34,20 @@ export function SettingsModal({ settings, onClose, onSaved }: Props) {
   const [message, setMessage] = useState<string | null>(null)
 
   useEffect(() => {
-    void window.bell.hasApiKey().then(setHasKey)
-    void window.bell.cacheSize().then(setCacheSize)
-    void window.bell.listVoices().then(setVoices).catch(() => setVoices([]))
+    void window.pilcrow.hasApiKey().then(setHasKey)
+    void window.pilcrow.cacheSize().then(setCacheSize)
+    void window.pilcrow.listVoices().then(setVoices).catch(() => setVoices([]))
   }, [])
+
+  useEffect(() => {
+    const onKeyDown = (event: KeyboardEvent) => {
+      // The shortcut recorder swallows Escape itself while it is capturing, so
+      // this only fires when nothing else has claimed the key.
+      if (event.key === 'Escape') onClose()
+    }
+    window.addEventListener('keydown', onKeyDown)
+    return () => window.removeEventListener('keydown', onKeyDown)
+  }, [onClose])
 
   const update = <K extends keyof Settings>(key: K, value: Settings[K]) => {
     setDraft((previous) => ({ ...previous, [key]: value }))
@@ -48,7 +59,7 @@ export function SettingsModal({ settings, onClose, onSaved }: Props) {
 
   const save = async () => {
     if (apiKey.trim().length > 0) {
-      const result = await window.bell.setApiKey(apiKey.trim())
+      const result = await window.pilcrow.setApiKey(apiKey.trim())
       if (!result.ok) {
         setMessage(result.error ?? 'Could not save the API key.')
         return
@@ -57,7 +68,7 @@ export function SettingsModal({ settings, onClose, onSaved }: Props) {
       setApiKey('')
     }
 
-    const saved = await window.bell.saveSettings(draft)
+    const saved = await window.pilcrow.saveSettings(draft)
     onSaved(saved)
     onClose()
   }
@@ -67,8 +78,8 @@ export function SettingsModal({ settings, onClose, onSaved }: Props) {
       <div className="modal" onClick={(event) => event.stopPropagation()}>
         <header className="modal__header">
           <h2>Settings</h2>
-          <button onClick={onClose} type="button">
-            ✕
+          <button onClick={onClose} type="button" title="Close">
+            <CloseIcon />
           </button>
         </header>
 
@@ -202,7 +213,7 @@ export function SettingsModal({ settings, onClose, onSaved }: Props) {
               />
               <span>
                 Show the indicator
-                <em>A small pill stays onscreen so you can see Bell is running.</em>
+                <em>A small pill stays onscreen so you can see Pilcrow is running.</em>
               </span>
             </label>
 
@@ -214,7 +225,7 @@ export function SettingsModal({ settings, onClose, onSaved }: Props) {
               />
               <span>
                 Launch at login
-                <em>Bell starts in the menu bar when you log in.</em>
+                <em>Pilcrow starts in the menu bar when you log in.</em>
               </span>
             </label>
           </section>
@@ -225,8 +236,8 @@ export function SettingsModal({ settings, onClose, onSaved }: Props) {
               className="button"
               type="button"
               onClick={async () => {
-                await window.bell.clearCache()
-                setCacheSize(await window.bell.cacheSize())
+                await window.pilcrow.clearCache()
+                setCacheSize(await window.pilcrow.cacheSize())
               }}
             >
               Clear cache

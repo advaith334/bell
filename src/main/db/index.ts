@@ -27,7 +27,7 @@ CREATE INDEX IF NOT EXISTS idx_utterances_created ON utterances(created_at DESC)
 
 export function open(): Database.Database {
   if (db) return db
-  db = new Database(path.join(app.getPath('userData'), 'bell.sqlite'))
+  db = new Database(path.join(app.getPath('userData'), 'pilcrow.sqlite'))
   db.pragma('journal_mode = WAL')
   db.exec(SCHEMA)
   return db

@@ -54,8 +54,8 @@ function PermissionBanner({ onGrant }: { onGrant: () => void }) {
   return (
     <div className="banner">
       <div>
-        <strong>Bell needs Accessibility permission</strong>
-        <p>Without it, Bell cannot read what you have highlighted in other apps.</p>
+        <strong>Pilcrow needs Accessibility permission</strong>
+        <p>Without it, Pilcrow cannot read what you have highlighted in other apps.</p>
       </div>
       <button className="button button--primary" onClick={onGrant} type="button">
         Grant access
@@ -72,12 +72,13 @@ function App() {
   const [search, setSearch] = useState('')
   const [showSettings, setShowSettings] = useState(false)
   const [hasPermission, setHasPermission] = useState(true)
+  const [playingId, setPlayingId] = useState<string | null>(null)
 
   const refresh = useCallback(async () => {
     const [list, nextStats, nextSources] = await Promise.all([
-      window.bell.listUtterances(100, 0, search),
-      window.bell.stats(),
-      window.bell.topSources(),
+      window.pilcrow.listUtterances(100, 0, search),
+      window.pilcrow.stats(),
+      window.pilcrow.topSources(),
     ])
     setUtterances(list)
     setStats(nextStats)
@@ -89,20 +90,25 @@ function App() {
   }, [refresh])
 
   useEffect(() => {
-    void window.bell.getSettings().then(setSettings)
-    void window.bell.permissionStatus().then(setHasPermission)
+    void window.pilcrow.getSettings().then(setSettings)
+    void window.pilcrow.permissionStatus().then(setHasPermission)
 
-    const unsubscribeHistory = window.bell.onHistoryChanged(() => void refresh())
-    const unsubscribeSettings = window.bell.onOpenSettings(() => setShowSettings(true))
+    const unsubscribeHistory = window.pilcrow.onHistoryChanged(() => void refresh())
+    const unsubscribeSettings = window.pilcrow.onOpenSettings(() => setShowSettings(true))
+    // Highlight whichever row is being read, so the list reflects live state.
+    const unsubscribeStatus = window.pilcrow.onStatus((status) => {
+      setPlayingId(status.state === 'speaking' ? (status.utteranceId ?? null) : null)
+    })
 
     return () => {
       unsubscribeHistory()
       unsubscribeSettings()
+      unsubscribeStatus()
     }
   }, [refresh])
 
   const handleDelete = async (id: string) => {
-    await window.bell.deleteUtterance(id)
+    await window.pilcrow.deleteUtterance(id)
     await refresh()
   }
 
@@ -118,10 +124,10 @@ function App() {
       {!hasPermission && (
         <PermissionBanner
           onGrant={() => {
-            void window.bell.requestPermission()
+            void window.pilcrow.requestPermission()
             // The system prompt is asynchronous and out of process, so re-check
             // shortly after rather than assuming the grant succeeded.
-            setTimeout(() => void window.bell.permissionStatus().then(setHasPermission), 1500)
+            setTimeout(() => void window.pilcrow.permissionStatus().then(setHasPermission), 1500)
           }}
         />
       )}
@@ -130,7 +136,9 @@ function App() {
         <main className="primary">
           <RecentlyRead
             utterances={utterances}
-            onReplay={(id) => void window.bell.replay(id)}
+            playingId={playingId}
+            onReplay={(id) => void window.pilcrow.replay(id)}
+            onStop={() => void window.pilcrow.stop()}
             onDelete={(id) => void handleDelete(id)}
             search={search}
             onSearchChange={setSearch}

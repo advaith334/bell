@@ -5,7 +5,7 @@ import ApplicationServices
 import Carbon.HIToolbox
 import Foundation
 
-// bell-helper — reads the user's current text selection and prints one JSON line.
+// pilcrow-helper — reads the user's current text selection and prints one JSON line.
 //
 // Two strategies, in order of preference:
 //   1. Accessibility: ask the focused UI element for kAXSelectedTextAttribute.
@@ -14,7 +14,7 @@ import Foundation
 //      pasteboard back. Needed for terminals and some web views, where the AX
 //      selection attribute is unimplemented.
 //
-// Usage: bell-helper get-selection [--no-clipboard]
+// Usage: pilcrow-helper get-selection [--no-clipboard]
 
 struct Response: Codable {
     var ok: Bool
@@ -140,7 +140,7 @@ func selectionViaClipboard() -> String? {
 
 let arguments = CommandLine.arguments
 guard arguments.count > 1, arguments[1] == "get-selection" else {
-    emit(Response(ok: false, error: "usage: bell-helper get-selection [--no-clipboard]"))
+    emit(Response(ok: false, error: "usage: pilcrow-helper get-selection [--no-clipboard]"))
 }
 let clipboardAllowed = !arguments.contains("--no-clipboard")
 

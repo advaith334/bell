@@ -16,7 +16,7 @@ interface MenuActions {
 export function buildApplicationMenu(actions: MenuActions): void {
   const template: MenuItemConstructorOptions[] = [
     {
-      label: 'Bell',
+      label: 'Pilcrow',
       submenu: [
         { role: 'about' },
         { type: 'separator' },
@@ -70,7 +70,7 @@ export function buildApplicationMenu(actions: MenuActions): void {
         { role: 'close' },
         { type: 'separator' },
         {
-          label: 'Bell Home',
+          label: 'Pilcrow Home',
           accelerator: 'CmdOrCtrl+0',
           click: () => actions.openHome(),
         },
@@ -82,7 +82,7 @@ export function buildApplicationMenu(actions: MenuActions): void {
       role: 'help',
       submenu: [
         {
-          label: 'Bell on GitHub',
+          label: 'Pilcrow on GitHub',
           click: () => void shell.openExternal('https://github.com/advaith334/bell'),
         },
       ],

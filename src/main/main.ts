@@ -3,6 +3,7 @@ import path from 'node:path'
 import { IPC } from '@/shared/ipc'
 import { formatAccelerator } from '@/shared/shortcut'
 import { buildApplicationMenu } from './menu'
+import { migrateFromPreviousName } from './migrate'
 import type { PlaybackStatus, Settings } from '@/shared/types'
 import * as db from './db'
 import * as cache from './services/cache'
@@ -24,7 +25,7 @@ if (require('electron-squirrel-startup')) app.quit()
 
 // Without this the menu bar and About panel say "Electron" in development,
 // because the name is read from the binary rather than package.json.
-app.setName('Bell')
+app.setName('Pilcrow')
 
 function scheduleHudHide(delay: number): void {
   if (hudTimer) clearTimeout(hudTimer)
@@ -43,7 +44,7 @@ function onStatus(status: PlaybackStatus): void {
   }
 
   // With the ambient indicator on, the pill never hides — it just returns to
-  // its idle state, which is the point: Bell stays visibly available.
+  // its idle state, which is the point: Pilcrow stays visibly available.
   const keepVisible = settings.load().showIndicator
 
   if (status.state === 'idle') {
@@ -113,17 +114,17 @@ function buildTray(): void {
   const config = settings.load()
 
   tray = new Tray(icon.isEmpty() ? nativeImage.createEmpty() : icon)
-  if (icon.isEmpty()) tray.setTitle('Bell')
-  tray.setToolTip(`Bell — press ${formatAccelerator(config.hotkey)} to read the selection`)
+  if (icon.isEmpty()) tray.setTitle('Pilcrow')
+  tray.setToolTip(`Pilcrow — press ${formatAccelerator(config.hotkey)} to read the selection`)
 
   const menu = Menu.buildFromTemplate([
     { label: 'Read Selection', accelerator: config.hotkey, click: () => void reader.read() },
     { label: 'Stop', click: () => reader.stop() },
     { type: 'separator' },
-    { label: 'Bell Home', click: () => windows.createHome() },
+    { label: 'Pilcrow Home', click: () => windows.createHome() },
     { label: 'Settings…', accelerator: 'Command+,', click: () => openSettings() },
     { type: 'separator' },
-    { label: 'Quit Bell', accelerator: 'Command+Q', click: () => app.quit() },
+    { label: 'Quit Pilcrow', accelerator: 'Command+Q', click: () => app.quit() },
   ])
   tray.setContextMenu(menu)
 }
@@ -165,9 +166,17 @@ function registerIpc(): void {
     }
   })
   ipcMain.handle(IPC.hasApiKey, () => settings.hasApiKey())
-  ipcMain.handle(IPC.listVoices, () => {
+  ipcMain.handle(IPC.listVoices, async () => {
     const key = settings.getApiKey()
-    return key ? listVoices(key) : []
+    if (!key) return []
+    try {
+      return await listVoices(key)
+    } catch {
+      // A key scoped to text-to-speech only cannot read /v1/voices. That is a
+      // perfectly usable key, so fall back to the voice already configured
+      // rather than failing the whole Settings panel.
+      return []
+    }
   })
 
   ipcMain.handle(IPC.permissionStatus, () => selection.hasAccessibilityPermission())
@@ -201,6 +210,8 @@ function applyLoginItem(enabled: boolean): void {
 }
 
 app.whenReady().then(() => {
+  // Must run before anything opens a file under userData.
+  migrateFromPreviousName()
   db.open()
   reader.init({ onStatus, onAudio, onReset: resetAudio })
 
@@ -222,7 +233,7 @@ app.whenReady().then(() => {
 
   if (config.showIndicator) windows.showHud()
 
-  console.log(`[bell] ready — hotkey ${config.hotkey}, accessibility ${selection.hasAccessibilityPermission()}`)
+  console.log(`[pilcrow] ready — hotkey ${config.hotkey}, accessibility ${selection.hasAccessibilityPermission()}`)
   if (!registerHotkey(config.hotkey)) {
     // Most often means another app already owns the combination.
     onStatus({
@@ -242,14 +253,14 @@ app.on('will-quit', () => {
   globalShortcut.unregisterAll()
 })
 
-// Bell is a menu-bar app: closing the Home window should not quit it.
+// Pilcrow is a menu-bar app: closing the Home window should not quit it.
 app.on('window-all-closed', () => {
   // Intentionally empty on every platform we ship.
 })
 
 if (process.platform === 'darwin') {
   app.setAboutPanelOptions({
-    applicationName: 'Bell',
+    applicationName: 'Pilcrow',
     applicationVersion: app.getVersion(),
     copyright: 'Highlight anything and hear it read back.',
   })

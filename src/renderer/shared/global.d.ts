@@ -1,8 +1,8 @@
-import type { BellApi } from '@/preload/preload'
+import type { PilcrowApi } from '@/preload/preload'
 
 declare global {
   interface Window {
-    bell: BellApi
+    pilcrow: PilcrowApi
   }
 }
 

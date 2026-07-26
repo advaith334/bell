@@ -1,5 +1,5 @@
 #!/bin/bash
-# Builds the bell-helper binary. Kept as a plain swiftc invocation rather than a
+# Builds the pilcrow-helper binary. Kept as a plain swiftc invocation rather than a
 # SwiftPM package because the helper is a single file with no dependencies
 # beyond system frameworks.
 set -euo pipefail
@@ -14,7 +14,7 @@ swiftc \
   -target arm64-apple-macosx13.0 \
   -framework AppKit \
   -framework ApplicationServices \
-  -o "$OUT_DIR/bell-helper" \
+  -o "$OUT_DIR/pilcrow-helper" \
   "$HELPER_DIR/main.swift"
 
-echo "built $OUT_DIR/bell-helper"
+echo "built $OUT_DIR/pilcrow-helper"

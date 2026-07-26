@@ -116,7 +116,7 @@ export interface Settings {
   pauses: PauseSettings
   maxChars: number
   launchAtLogin: boolean
-  /** Keep a small always-on indicator onscreen so Bell is visibly running. */
+  /** Keep a small always-on indicator onscreen so Pilcrow is visibly running. */
   showIndicator: boolean
 }
 

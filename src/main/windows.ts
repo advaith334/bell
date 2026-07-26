@@ -1,4 +1,4 @@
-import { app, BrowserWindow, nativeTheme, screen } from 'electron'
+import { app, BrowserWindow, screen } from 'electron'
 import fs from 'node:fs'
 import path from 'node:path'
 
@@ -45,16 +45,24 @@ function preloadPath(): string {
 }
 
 function loadRoute(window: BrowserWindow, route: 'home' | 'hud' | 'audio'): void {
+  // A window that fails to load stays invisible forever, because ready-to-show
+  // never fires. That has been mistaken for a crash twice, so say so loudly.
+  window.webContents.on('did-fail-load', (_event, code, description, url) => {
+    console.error(`[pilcrow] ${route} window failed to load (${code} ${description}): ${url}`)
+  })
+  window.webContents.on('render-process-gone', (_event, details) => {
+    console.error(`[pilcrow] ${route} renderer gone: ${details.reason}`)
+  })
+
   const devUrl = devServerUrl()
+  const target = devUrl
+    ? `${devUrl}/src/renderer/${route}/index.html`
+    : path.join(__dirname, `../renderer/${rendererName()}/src/renderer/${route}/index.html`)
 
-  if (devUrl) {
-    void window.loadURL(`${devUrl}/src/renderer/${route}/index.html`)
-    return
-  }
-
-  void window.loadFile(
-    path.join(__dirname, `../renderer/${rendererName()}/src/renderer/${route}/index.html`),
-  )
+  const loading = devUrl ? window.loadURL(target) : window.loadFile(target)
+  loading.catch((error: unknown) => {
+    console.error(`[pilcrow] ${route} window could not load ${target}:`, error)
+  })
 }
 
 interface Bounds {
@@ -107,24 +115,32 @@ function saveBounds(window: BrowserWindow): void {
 }
 
 /**
- * Bell lives in the menu bar, so the dock icon only appears while the Home
+ * Pilcrow lives in the menu bar, so the dock icon only appears while the Home
  * window is open. Without this the dock shows a permanently running app the
  * user has no window for.
+ *
+ * The await matters: while the app is an accessory, macOS keeps its ordinary
+ * windows below every regular app's windows. Showing Home before the policy has
+ * flipped back to regular produces a window that exists, reports visible, and
+ * even accepts AXRaise — but never actually appears in front of anything.
  */
-function syncDockVisibility(): void {
-  const shouldShow = home !== null && !home.isDestroyed()
-  if (shouldShow) {
-    void app.dock?.show()
-  } else {
-    app.dock?.hide()
-  }
+async function showDockAndFocus(): Promise<void> {
+  await app.dock?.show()
+  app.focus({ steal: true })
+}
+
+function hideDock(): void {
+  app.dock?.hide()
 }
 
 export function createHome(): BrowserWindow {
   if (home && !home.isDestroyed()) {
-    home.show()
-    home.focus()
-    return home
+    const existing = home
+    void showDockAndFocus().then(() => {
+      existing.show()
+      existing.focus()
+    })
+    return existing
   }
 
   const bounds = loadBounds()
@@ -133,24 +149,39 @@ export function createHome(): BrowserWindow {
     ...bounds,
     minWidth: 760,
     minHeight: 540,
-    title: 'Bell',
+    title: 'Pilcrow',
     // Inset traffic lights over a vibrant background is the standard look for a
     // single-view Mac app with no toolbar.
     titleBarStyle: 'hiddenInset',
     trafficLightPosition: { x: 18, y: 20 },
     vibrancy: 'under-window',
     visualEffectState: 'active',
-    backgroundColor: nativeTheme.shouldUseDarkColors ? '#00000000' : '#00000000',
+    // No backgroundColor: an explicitly transparent one composites the window
+    // to nothing on top of the vibrancy layer, leaving it "visible" per
+    // isVisible() but invisible on screen.
     show: false,
     webPreferences: { preload: preloadPath() },
   })
 
   loadRoute(home, 'home')
 
-  home.once('ready-to-show', () => {
-    home?.show()
-    syncDockVisibility()
-  })
+  const reveal = async () => {
+    if (!home || home.isDestroyed() || home.isVisible()) return
+    await showDockAndFocus()
+    home.show()
+    home.focus()
+  }
+
+  home.once('ready-to-show', () => void reveal())
+
+  // Belt and braces: if first paint is somehow never reported, show anyway
+  // rather than leaving the user with a running app and no window.
+  setTimeout(() => {
+    if (home && !home.isDestroyed() && !home.isVisible()) {
+      console.warn('[pilcrow] home window never reported ready-to-show; showing it anyway')
+      void reveal()
+    }
+  }, 4000)
 
   home.on('resize', () => home && saveBounds(home))
   home.on('move', () => home && saveBounds(home))
@@ -158,7 +189,7 @@ export function createHome(): BrowserWindow {
   home.on('close', () => home && saveBounds(home))
   home.on('closed', () => {
     home = null
-    syncDockVisibility()
+    hideDock()
   })
 
   return home
