@@ -1,12 +1,14 @@
 import { useEffect, useState } from 'react'
-import type { CodePolicy, Settings } from '@/shared/types'
-import type { Voice } from '@/main/services/elevenlabs'
+import type { AccountState, CodePolicy, Settings } from '@/shared/types'
+import type { Voice } from '@/main/services/tts'
 import { ShortcutRecorder } from './ShortcutRecorder'
 import { CloseIcon } from './icons'
 import { formatBytes } from './format'
+import { AccountSection } from './AccountSection'
 
 interface Props {
   settings: Settings
+  account: AccountState
   onClose: () => void
   onSaved: (settings: Settings) => void
 }
@@ -25,16 +27,13 @@ const PAUSE_FIELDS: Array<{ key: keyof Settings['pauses']; label: string; hint: 
   { key: 'sectionMs', label: 'Between sections', hint: 'At a horizontal rule' },
 ]
 
-export function SettingsModal({ settings, onClose, onSaved }: Props) {
+export function SettingsModal({ settings, account, onClose, onSaved }: Props) {
   const [draft, setDraft] = useState<Settings>(settings)
-  const [apiKey, setApiKey] = useState('')
-  const [hasKey, setHasKey] = useState(false)
   const [voices, setVoices] = useState<Voice[]>([])
   const [cacheSize, setCacheSize] = useState(0)
   const [message, setMessage] = useState<string | null>(null)
 
   useEffect(() => {
-    void window.pilcrow.hasApiKey().then(setHasKey)
     void window.pilcrow.cacheSize().then(setCacheSize)
     void window.pilcrow.listVoices().then(setVoices).catch(() => setVoices([]))
   }, [])
@@ -58,16 +57,6 @@ export function SettingsModal({ settings, onClose, onSaved }: Props) {
   }
 
   const save = async () => {
-    if (apiKey.trim().length > 0) {
-      const result = await window.pilcrow.setApiKey(apiKey.trim())
-      if (!result.ok) {
-        setMessage(result.error ?? 'Could not save the API key.')
-        return
-      }
-      setHasKey(true)
-      setApiKey('')
-    }
-
     const saved = await window.pilcrow.saveSettings(draft)
     onSaved(saved)
     onClose()
@@ -84,17 +73,7 @@ export function SettingsModal({ settings, onClose, onSaved }: Props) {
         </header>
 
         <div className="modal__body">
-          <section className="field">
-            <label htmlFor="apiKey">ElevenLabs API key</label>
-            <input
-              id="apiKey"
-              type="password"
-              placeholder={hasKey ? '•••••••• (saved)' : 'Paste your key'}
-              value={apiKey}
-              onChange={(event) => setApiKey(event.target.value)}
-            />
-            <p className="field__hint">Stored in the macOS Keychain, never in plain text.</p>
-          </section>
+          <AccountSection account={account} onMessage={setMessage} />
 
           <section className="field">
             <label htmlFor="voice">Voice</label>

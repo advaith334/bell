@@ -1,11 +1,13 @@
 import { createRoot } from 'react-dom/client'
 import { useCallback, useEffect, useState } from 'react'
-import type { Settings, Stats, TopSource, Utterance } from '@/shared/types'
-import { DEFAULT_SETTINGS } from '@/shared/types'
+import type { AccountState, QuotaReason, Settings, Stats, TopSource, Utterance } from '@/shared/types'
+import { DEFAULT_SETTINGS, EMPTY_ACCOUNT_STATE } from '@/shared/types'
 import { formatAccelerator } from '@/shared/shortcut'
 import { RecentlyRead } from './RecentlyRead'
-import { StatCards, TopSources } from './Sidebar'
+import { StatCards, TopSources, QuotaCard } from './Sidebar'
 import { SettingsModal } from './SettingsModal'
+import { SignIn } from './SignIn'
+import { UpgradeSheet } from './UpgradeSheet'
 import { formatCount } from './format'
 import '../shared/global.d'
 import './home.css'
@@ -73,6 +75,9 @@ function App() {
   const [showSettings, setShowSettings] = useState(false)
   const [hasPermission, setHasPermission] = useState(true)
   const [playingId, setPlayingId] = useState<string | null>(null)
+  const [account, setAccount] = useState<AccountState>(EMPTY_ACCOUNT_STATE)
+  const [upgradeReason, setUpgradeReason] = useState<QuotaReason | null>(null)
+  const [showUpgrade, setShowUpgrade] = useState(false)
 
   const refresh = useCallback(async () => {
     const [list, nextStats, nextSources] = await Promise.all([
@@ -92,24 +97,52 @@ function App() {
   useEffect(() => {
     void window.pilcrow.getSettings().then(setSettings)
     void window.pilcrow.permissionStatus().then(setHasPermission)
+    void window.pilcrow.getAccount().then(setAccount)
 
     const unsubscribeHistory = window.pilcrow.onHistoryChanged(() => void refresh())
     const unsubscribeSettings = window.pilcrow.onOpenSettings(() => setShowSettings(true))
+    const unsubscribeAccount = window.pilcrow.onAccount(setAccount)
+    const unsubscribeUpgrade = window.pilcrow.onShowUpgrade(() => setShowUpgrade(true))
+
     // Highlight whichever row is being read, so the list reflects live state.
     const unsubscribeStatus = window.pilcrow.onStatus((status) => {
       setPlayingId(status.state === 'speaking' ? (status.utteranceId ?? null) : null)
+
+      // The paywall appears the moment a read is refused, which is the only
+      // moment the offer is relevant.
+      if (status.state === 'needs-upgrade') {
+        setUpgradeReason(status.quotaReason ?? null)
+        setShowUpgrade(true)
+      }
     })
+
+    // Entitlement can change out from under us — a subscription bought on
+    // another machine, or one that lapsed while the window was open.
+    const onFocus = () => void window.pilcrow.refreshAccount().then(setAccount)
+    window.addEventListener('focus', onFocus)
 
     return () => {
       unsubscribeHistory()
       unsubscribeSettings()
       unsubscribeStatus()
+      unsubscribeAccount()
+      unsubscribeUpgrade()
+      window.removeEventListener('focus', onFocus)
     }
   }, [refresh])
 
   const handleDelete = async (id: string) => {
     await window.pilcrow.deleteUtterance(id)
     await refresh()
+  }
+
+  if (!account.signedIn) {
+    return (
+      <div className="page">
+        <div className="titlebar" />
+        <SignIn error={account.error} />
+      </div>
+    )
   }
 
   return (
@@ -146,6 +179,7 @@ function App() {
         </main>
 
         <aside className="aside">
+          <QuotaCard account={account} onUpgrade={() => setShowUpgrade(true)} />
           <StatCards stats={stats} />
           <TopSources sources={sources} />
         </aside>
@@ -154,8 +188,17 @@ function App() {
       {showSettings && (
         <SettingsModal
           settings={settings}
+          account={account}
           onClose={() => setShowSettings(false)}
           onSaved={setSettings}
+        />
+      )}
+
+      {showUpgrade && (
+        <UpgradeSheet
+          reason={upgradeReason}
+          freeReadLimit={account.account?.limits.freeReadLimit ?? 20}
+          onClose={() => setShowUpgrade(false)}
         />
       )}
     </div>

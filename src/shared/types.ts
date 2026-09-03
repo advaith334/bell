@@ -97,7 +97,20 @@ export interface TopSource {
   share: number
 }
 
-export type PlaybackState = 'idle' | 'capturing' | 'thinking' | 'speaking' | 'paused' | 'error'
+/**
+ * `needs-auth` and `needs-upgrade` are separate from `error` on purpose. They are
+ * not failures — they are prompts the user can act on, and the HUD and Home
+ * render them as an invitation rather than as red text.
+ */
+export type PlaybackState =
+  | 'idle'
+  | 'capturing'
+  | 'thinking'
+  | 'speaking'
+  | 'paused'
+  | 'error'
+  | 'needs-auth'
+  | 'needs-upgrade'
 
 export interface PlaybackStatus {
   state: PlaybackState
@@ -105,6 +118,57 @@ export interface PlaybackStatus {
   currentText?: string
   progress?: number
   error?: string
+  /** Why the paywall appeared, so the message can be specific. */
+  quotaReason?: QuotaReason
+}
+
+export type Plan = 'free' | 'pro'
+
+export type QuotaReason = 'free_reads' | 'free_chars'
+
+export interface Entitlement {
+  plan: Plan
+  status: string
+  isActive: boolean
+  /** Epoch ms. On a cancelled subscription, when access actually ends. */
+  currentPeriodEnd: number | null
+  /** Null on Pro, where reads are not the limiting resource. */
+  readsRemaining: number | null
+  freeReadsUsed: number
+  freeCharsUsed: number
+  monthlyChars: number
+  monthlyCharsIncluded: number | null
+  throttled: boolean
+}
+
+export interface Account {
+  userId: string
+  email: string | null
+  entitlement: Entitlement
+  limits: {
+    freeReadLimit: number
+    freeCharLimit: number
+    maxCharsPerRequest: number
+  }
+}
+
+/**
+ * What the renderers see. `status` distinguishes the three states the UI must
+ * look different for: not signed in, signed in and fine, signed in and blocked.
+ */
+export interface AccountState {
+  signedIn: boolean
+  account: Account | null
+  /** Set when the last refresh failed, so the UI can say "offline" not "free". */
+  error: string | null
+  loading: boolean
+}
+
+export const EMPTY_ACCOUNT_STATE: AccountState = {
+  signedIn: false,
+  account: null,
+  error: null,
+  loading: false,
 }
 
 export interface Settings {

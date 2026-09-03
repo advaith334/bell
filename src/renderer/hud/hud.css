@@ -232,3 +232,16 @@ body {
     color: #fff;
   }
 }
+
+/*
+ * Blocked is not an error. It borrows the accent rather than the error colour,
+ * because the pill is inviting a click, not reporting a fault.
+ */
+.pill--blocked {
+  border-color: var(--accent-line);
+  background: linear-gradient(var(--accent-soft), transparent), var(--surface-raised);
+}
+
+.pill--blocked .pill__warn {
+  color: var(--accent);
+}

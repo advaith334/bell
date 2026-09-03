@@ -3,11 +3,5 @@ out/
 .vite/
 dist/
 swift-helper/dist/
-*.log
+.env
 .DS_Store
-coverage/
-.env
-.env
-.env.local
-abi-out.txt
-abi-probe.js

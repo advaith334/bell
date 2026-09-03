@@ -1,0 +1,36 @@
+{
+  "name": "@pilcrow/services",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "description": "Pilcrow backend \u2014 control plane (API Gateway) and TTS proxy (Lambda Function URL)",
+  "scripts": {
+    "build": "node build.mjs",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "dev:api": "tsx watch src/dev-server.ts"
+  },
+  "dependencies": {
+    "@aws-lambda-powertools/logger": "^2.11.0",
+    "@aws-lambda-powertools/metrics": "^2.11.0",
+    "@aws-sdk/client-dynamodb": "^3.700.0",
+    "@aws-sdk/client-secrets-manager": "^3.700.0",
+    "@aws-sdk/lib-dynamodb": "^3.700.0",
+    "aws-jwt-verify": "^5.0.0",
+    "electrodb": "^3.4.1",
+    "hono": "^4.6.14",
+    "stripe": "^17.5.0",
+    "zod": "^3.24.1"
+  },
+  "devDependencies": {
+    "@types/aws-lambda": "^8.10.146",
+    "@types/node": "^22.10.2",
+    "esbuild": "^0.24.2",
+    "tsx": "^4.19.2",
+    "typescript": "^5.7.3",
+    "vitest": "^2.1.8",
+    "@hono/node-server": "^1.13.7",
+    "aws-sdk-client-mock": "^4.1.0"
+  }
+}
