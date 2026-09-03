@@ -1,0 +1,4 @@
+zone_name               = "pilcrow.app"
+hosted_ui_domain_prefix = "pilcrow-auth"
+releases_bucket_name    = "pilcrow-releases-prod-CHANGEME"
+alert_emails            = ["you@example.com"]

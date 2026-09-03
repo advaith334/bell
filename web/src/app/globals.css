@@ -1,0 +1,33 @@
+@import 'tailwindcss';
+
+/*
+ * The palette is lifted from the app's own tokens (src/renderer/shared/tokens.css)
+ * so the site and the thing you download do not look like different products.
+ */
+@theme {
+  --color-ink: #1a1a1a;
+  --color-sand-50: #faf9f5;
+  --color-sand-100: #f3f1ea;
+  --color-sand-200: #e9e7dd;
+  --color-chord: #7232a6;
+  --color-dawn: #f0d7ff;
+
+  --font-sans: 'Figtree', ui-sans-serif, system-ui, -apple-system, 'Segoe UI', sans-serif;
+}
+
+html {
+  scroll-behavior: smooth;
+}
+
+body {
+  background: var(--color-sand-50);
+  color: var(--color-ink);
+  -webkit-font-smoothing: antialiased;
+}
+
+@media (prefers-color-scheme: dark) {
+  body {
+    background: #171614;
+    color: #f4f3ee;
+  }
+}

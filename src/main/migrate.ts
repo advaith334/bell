@@ -23,7 +23,12 @@ const RENAMED_FILES: Record<string, string> = {
 
 const CARRIED_OVER = [
   'settings.json',
+  // Pilcrow supplies the voice now, so this is dead weight for the app itself —
+  // but carrying it means a downgrade to an older build still finds its key.
   'apikey.bin',
+  // The Cognito refresh token. Losing it on a rename would silently sign
+  // everyone out, which looks exactly like the app forgetting them.
+  'tokens.bin',
   'window-state.json',
   ...Object.keys(RENAMED_FILES),
 ]

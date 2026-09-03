@@ -10,9 +10,15 @@ export const IPC = {
   topSources: 'pilcrow:top-sources',
   getSettings: 'pilcrow:get-settings',
   saveSettings: 'pilcrow:save-settings',
-  setApiKey: 'pilcrow:set-api-key',
-  hasApiKey: 'pilcrow:has-api-key',
   listVoices: 'pilcrow:list-voices',
+
+  // Account and billing
+  signIn: 'pilcrow:sign-in',
+  signOut: 'pilcrow:sign-out',
+  getAccount: 'pilcrow:get-account',
+  refreshAccount: 'pilcrow:refresh-account',
+  openCheckout: 'pilcrow:open-checkout',
+  openBillingPortal: 'pilcrow:open-billing-portal',
   permissionStatus: 'pilcrow:permission-status',
   requestPermission: 'pilcrow:request-permission',
   cacheSize: 'pilcrow:cache-size',
@@ -32,4 +38,7 @@ export const IPC = {
   audioReset: 'pilcrow:audio-reset',
   historyChanged: 'pilcrow:history-changed',
   openSettings: 'pilcrow:open-settings',
+  account: 'pilcrow:account',
+  /** Brings Home forward on the upgrade sheet, from the HUD or a blocked read. */
+  showUpgrade: 'pilcrow:show-upgrade',
 } as const

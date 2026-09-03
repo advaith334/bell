@@ -1,21 +1,20 @@
-import { app, safeStorage } from 'electron'
+import { app } from 'electron'
 import fs from 'node:fs'
 import path from 'node:path'
 import type { Settings } from '@/shared/types'
 import { DEFAULT_SETTINGS } from '@/shared/types'
 
 /**
- * Settings live in a plain JSON file; the API key is encrypted separately with
- * Electron's safeStorage, which is backed by the macOS Keychain. Keeping the key
- * out of the JSON means the settings file can be read and edited freely.
+ * Settings live in a plain JSON file, so it can be read and edited freely.
+ *
+ * There is no user-facing API key any more: Pilcrow supplies the voice, and the
+ * ElevenLabs key lives in the backend. The one remnant is the .env escape hatch
+ * below, which exists purely so the text pipeline can be developed against
+ * ElevenLabs directly without a running backend or a signed-in session.
  */
 
 function settingsPath(): string {
   return path.join(app.getPath('userData'), 'settings.json')
-}
-
-function keyPath(): string {
-  return path.join(app.getPath('userData'), 'apikey.bin')
 }
 
 let cached: Settings | null = null
@@ -50,11 +49,16 @@ export function save(patch: Partial<Settings>): Settings {
 }
 
 /**
- * Reads ELEVEN_LABS_API_KEY from a .env file next to the project, or from the
- * process environment. This is a convenience for development — a key saved
- * through Settings always wins, so the two cannot disagree confusingly.
+ * Reads ELEVEN_LABS_API_KEY from a .env file or the process environment.
+ *
+ * DEVELOPMENT ONLY — deliberately inert in a packaged build. It lets the text
+ * pipeline be worked on against ElevenLabs directly, without a backend or an
+ * account. Shipping it would be a second, parallel way to pay for the same thing
+ * and a trivial way around the paywall.
  */
-function apiKeyFromEnvironment(): string | null {
+export function developerApiKey(): string | null {
+  if (app.isPackaged) return null
+
   const fromProcess = process.env.ELEVEN_LABS_API_KEY?.trim()
   if (fromProcess) return fromProcess
 
@@ -87,34 +91,4 @@ function apiKeyFromEnvironment(): string | null {
   }
 
   return null
-}
-
-export function setApiKey(key: string): void {
-  if (key.length === 0) {
-    fs.rmSync(keyPath(), { force: true })
-    return
-  }
-
-  if (!safeStorage.isEncryptionAvailable()) {
-    throw new Error('Secure storage is unavailable, so the API key cannot be saved.')
-  }
-
-  fs.writeFileSync(keyPath(), safeStorage.encryptString(key))
-}
-
-export function getApiKey(): string | null {
-  try {
-    return safeStorage.decryptString(fs.readFileSync(keyPath()))
-  } catch {
-    return apiKeyFromEnvironment()
-  }
-}
-
-/** True when the key came from .env rather than Settings, so the UI can say so. */
-export function apiKeyIsFromEnvironment(): boolean {
-  return !fs.existsSync(keyPath()) && apiKeyFromEnvironment() !== null
-}
-
-export function hasApiKey(): boolean {
-  return getApiKey() !== null
 }

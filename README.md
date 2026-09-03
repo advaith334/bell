@@ -12,7 +12,6 @@ Pilcrow is Wispr Flow inverted. Flow is `speech → text → active app`; Pilcro
 - macOS 13 or newer (Apple silicon)
 - Node 20+
 - Xcode command line tools, for the Swift helper
-- An [ElevenLabs](https://elevenlabs.io) API key
 
 ## Setup
 
@@ -22,17 +21,20 @@ npm run build:helper   # compiles swift-helper/dist/pilcrow-helper
 npm start
 ```
 
-On first launch, grant Accessibility permission when prompted and add your
-ElevenLabs API key. Either paste it into Settings — where it is encrypted with
-Electron's `safeStorage`, backed by the macOS Keychain, and never written to
-`settings.json` — or put it in a `.env` at the project root:
+On first launch, grant Accessibility permission when prompted and sign in with
+Apple or Google. **There is no API key to find** — Pilcrow supplies the voice.
+Twenty reads are free; after that it is $9.99/month.
 
-```
-ELEVEN_LABS_API_KEY=sk_...
-```
+Tokens are encrypted with Electron's `safeStorage`, backed by the macOS Keychain,
+and never written to `settings.json`.
 
-A key saved through Settings always wins over `.env`, so the two cannot disagree
-confusingly.
+### Developing without a backend
+
+An `ELEVEN_LABS_API_KEY` in a `.env` at the project root still works, but **only
+in an unpackaged build** (`settings.developerApiKey()` returns null when
+`app.isPackaged`). It exists so the text pipeline can be worked on without a
+running backend or a signed-in session — it is not a product feature, and
+shipping it would be a trivial way around the paywall.
 
 ## Using it
 
@@ -59,10 +61,17 @@ silently failing to launch, this is why.
 ## How it works
 
 ```
-hotkey → pilcrow-helper → normalize → chunk → ElevenLabs → MediaSource playback
-                                      ↓
-                                  SQLite history → Home page
+hotkey → pilcrow-helper → normalize → chunk → Pilcrow TTS → ElevenLabs
+                                      ↓            ↓
+                          SQLite history      MediaSource playback
+                                ↓
+                            Home page
 ```
+
+Synthesis goes through Pilcrow's own backend, which holds the ElevenLabs key,
+enforces the quota, and streams the mp3 straight back. The client's utterance id
+doubles as the read id: the backend writes one ledger entry per read id, so a
+read split across five chunks is charged exactly once.
 
 **Capture** (`swift-helper/main.swift`) reads `kAXSelectedTextAttribute` from the
 focused element. When that is unavailable — terminals, some web views — it falls
@@ -104,12 +113,31 @@ One page, modelled on Wispr Flow's home but tracking words **spoken aloud**
 rather than dictated: a recently-read list with replay, stat cards (today, this
 week, streak, listening time), and top source apps.
 
+## Repository layout
+
+| | |
+| --- | --- |
+| `src/` | the Electron app |
+| `swift-helper/` | the AX selection reader |
+| `services/` | the backend — control plane (Hono on API Gateway) and the streaming TTS proxy |
+| `infra/` | Terraform for all of AWS |
+| `web/` | the Next.js landing page, deployed to Vercel |
+| `docs/` | the manual-setup runbook and the launch plan |
+
 ## Development
 
 ```bash
-npm test        # 40 tests
+npm test              # 47 tests
 npm run typecheck
+
+cd services && npm test && npm run build
+cd web && npm run dev
 ```
 
 The fixture-style tests in `src/main/text/__tests__/` are the regression suite.
-Every "it paused weirdly here" bug should become a test there first.
+Every "it paused weirdly here" bug should become a test there first. The
+entitlement rules have their own suites — `src/main/services/__tests__/reader.test.ts`
+for the client gate and `services/src/shared/__tests__/entitlement.test.ts` for
+the server, which is the only place a bug costs real money in either direction.
+
+Setting up the backend for the first time is `docs/INFRA-MANUAL-STEPS.md`.

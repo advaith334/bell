@@ -838,3 +838,199 @@ kbd,
     box-shadow: 0 0 0 6px var(--accent-soft);
   }
 }
+
+/* ──────────────────────────  Account & quota  ───────────────────── */
+
+.card--urgent {
+  border-color: var(--accent-line);
+  background: linear-gradient(var(--accent-soft), transparent), var(--surface);
+}
+
+.quota__count {
+  margin: 10px 0 0;
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  font-size: 32px;
+  font-weight: 620;
+  letter-spacing: -0.02em;
+  font-variant-numeric: tabular-nums;
+}
+
+.quota__of {
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--text-muted);
+  letter-spacing: 0;
+}
+
+.quota__state {
+  margin: 10px 0 0;
+  font-size: 13px;
+  color: var(--text-secondary);
+}
+
+.quota__bar {
+  margin-top: 14px;
+  height: 4px;
+  border-radius: 999px;
+  background: var(--border);
+  overflow: hidden;
+}
+
+.quota__fill {
+  height: 100%;
+  border-radius: 999px;
+  background: var(--accent);
+  transition: width var(--duration-slow, 420ms) var(--spring);
+}
+
+.button--block {
+  margin-top: 14px;
+  width: 100%;
+}
+
+.button--large {
+  padding: 12px 22px;
+  font-size: 14px;
+}
+
+.button--quiet {
+  background: transparent;
+  border-color: transparent;
+  color: var(--text-muted);
+}
+
+.button--quiet:hover {
+  background: var(--surface-raised);
+  color: var(--text-secondary);
+}
+
+.account {
+  display: grid;
+  gap: 8px;
+  padding: 14px;
+  border-radius: var(--radius-md);
+  border: 1px solid var(--border);
+  background: var(--surface);
+}
+
+.account__row {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 16px;
+  font-size: 13px;
+}
+
+.account__label {
+  color: var(--text-muted);
+  white-space: nowrap;
+}
+
+.account__value {
+  text-align: right;
+  color: var(--text-secondary);
+}
+
+.account__actions {
+  display: flex;
+  gap: 10px;
+  margin-top: 12px;
+}
+
+/* ────────────────────────────  Sign in  ─────────────────────────── */
+
+.signin {
+  flex: 1;
+  display: grid;
+  place-items: center;
+  padding: 40px;
+}
+
+.signin__card {
+  max-width: 400px;
+  text-align: center;
+}
+
+.signin__title {
+  margin: 0 0 12px;
+  font-size: 26px;
+  font-weight: 620;
+  letter-spacing: -0.02em;
+}
+
+.signin__body {
+  margin: 0 0 26px;
+  font-size: 14px;
+  line-height: 1.55;
+  color: var(--text-secondary);
+}
+
+.signin__note {
+  margin: 14px 0 0;
+  font-size: 12px;
+  color: var(--text-muted);
+}
+
+.signin__error {
+  margin: 14px 0 0;
+  font-size: 12px;
+  color: #e0645f;
+}
+
+/* ────────────────────────────  Upgrade  ─────────────────────────── */
+
+.modal--narrow {
+  max-width: 400px;
+}
+
+.upgrade__lede {
+  margin: 0 0 18px;
+  font-size: 14px;
+  color: var(--text-secondary);
+}
+
+.upgrade__benefits {
+  margin: 0 0 22px;
+  padding: 0;
+  list-style: none;
+  display: grid;
+  gap: 10px;
+  font-size: 13px;
+  color: var(--text-secondary);
+}
+
+.upgrade__benefits li {
+  padding-left: 22px;
+  position: relative;
+}
+
+.upgrade__benefits li::before {
+  content: '';
+  position: absolute;
+  left: 4px;
+  top: 6px;
+  width: 6px;
+  height: 6px;
+  border-radius: 999px;
+  background: var(--accent);
+}
+
+.upgrade__price {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  margin-bottom: 18px;
+}
+
+.upgrade__amount {
+  font-size: 32px;
+  font-weight: 620;
+  letter-spacing: -0.02em;
+}
+
+.upgrade__period {
+  font-size: 13px;
+  color: var(--text-muted);
+}

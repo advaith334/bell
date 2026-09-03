@@ -5,7 +5,8 @@ import * as db from '@/main/db'
 import * as cache from './cache'
 import * as settings from './settings'
 import * as selection from './selection'
-import { ElevenLabsError, synthesize } from './elevenlabs'
+import { TtsError, synthesize } from './tts'
+import * as account from './account'
 
 /**
  * Orchestrates one read-aloud session: capture, normalize, then synthesize
@@ -84,15 +85,17 @@ export function markFinished(utteranceId: string): void {
 
 async function synthesizeChunk(session: Session, index: number): Promise<number> {
   const config = settings.load()
-  const apiKey = settings.getApiKey()
-  if (!apiKey) throw new ElevenLabsError('No ElevenLabs API key is set.')
-
   const chunk = session.chunks[index]
+
   const result = await synthesize({
     chunk,
+    // The utterance id doubles as the read id. The backend creates one ledger
+    // entry per read id, so all of a read's chunks are charged exactly once
+    // however many there are and however often a chunk is retried.
+    readId: session.id,
+    chunkIndex: index,
     previousText: session.chunks[index - 1]?.plain,
     nextText: session.chunks[index + 1]?.plain,
-    apiKey,
     voiceId: config.voiceId,
     modelId: config.modelId,
     speed: config.speed,
@@ -155,8 +158,16 @@ export async function read(options: ReadOptions = {}): Promise<void> {
 
   const config = settings.load()
 
-  if (!settings.hasApiKey()) {
-    emit({ state: 'error', error: 'Add your ElevenLabs API key in Settings first.' })
+  // The optimistic local gate. The server is the authority — it re-checks on
+  // every chunk — but going through the whole capture-and-normalize dance only
+  // to be refused would feel broken.
+  const blocked = account.blockedReason()
+  if (blocked === 'needs-auth') {
+    emit({ state: 'needs-auth' })
+    return
+  }
+  if (blocked === 'needs-upgrade') {
+    emit({ state: 'needs-upgrade', quotaReason: 'free_reads' })
     return
   }
 
@@ -241,10 +252,26 @@ export async function read(options: ReadOptions = {}): Promise<void> {
     if (session.stopped) return
     current = null
     db.finish(session.id, Date.now() - session.startedAt, false)
+
+    // A paywall or an expired session partway through a read is not an error to
+    // apologise for — it is a prompt. Whatever already played keeps playing; we
+    // do not rewind someone to the start of a paragraph.
+    if (error instanceof TtsError && error.reason === 'quota') {
+      account.refreshSoon()
+      emit({ state: 'needs-upgrade', quotaReason: error.quotaReason })
+      return
+    }
+    if (error instanceof TtsError && error.reason === 'auth') {
+      emit({ state: 'needs-auth' })
+      return
+    }
+
     emit({ state: 'error', error: error instanceof Error ? error.message : String(error) })
     return
   }
 
+  // Keeps the remaining-reads card honest without polling.
+  account.refreshSoon()
   cache.sweep()
 }
 

@@ -1,16 +1,20 @@
-import { app, BrowserWindow, globalShortcut, ipcMain, Menu, Tray, nativeImage } from 'electron'
+import { app, BrowserWindow, globalShortcut, ipcMain, Menu, Tray, nativeImage, shell } from 'electron'
 import path from 'node:path'
 import { IPC } from '@/shared/ipc'
 import { formatAccelerator } from '@/shared/shortcut'
 import { buildApplicationMenu } from './menu'
 import { migrateFromPreviousName } from './migrate'
-import type { PlaybackStatus, Settings } from '@/shared/types'
+import type { AccountState, PlaybackStatus, Settings } from '@/shared/types'
+import { BACKEND, DEEP_LINK_SCHEME } from '@/shared/config'
 import * as db from './db'
 import * as cache from './services/cache'
 import * as settings from './services/settings'
 import * as selection from './services/selection'
 import * as reader from './services/reader'
-import { listVoices } from './services/elevenlabs'
+import { listVoices } from './services/tts'
+import * as auth from './services/auth'
+import * as account from './services/account'
+import * as updater from './services/updater'
 import * as windows from './windows'
 
 /** How long the HUD lingers after playback ends. */
@@ -22,6 +26,16 @@ let tray: Tray | null = null
 let hudTimer: NodeJS.Timeout | null = null
 
 if (require('electron-squirrel-startup')) app.quit()
+
+/**
+ * Deep links are how sign-in gets its authorization code back. macOS delivers
+ * `pilcrow://` either to the running instance via `open-url`, or by launching a
+ * second one — so a single-instance lock is not optional here: without it the
+ * callback would arrive in a process that never started the sign-in.
+ */
+if (!app.requestSingleInstanceLock()) {
+  app.quit()
+}
 
 // Without this the menu bar and About panel say "Electron" in development,
 // because the name is read from the binary rather than package.json.
@@ -54,10 +68,20 @@ function onStatus(status: PlaybackStatus): void {
     return
   }
 
+  // Being blocked is actionable, so surface the thing that unblocks them rather
+  // than leaving a pill that says "no" and a hotkey that appears to do nothing.
+  if (status.state === 'needs-upgrade') {
+    windows.createHome()
+    windows.broadcast(IPC.showUpgrade)
+  } else if (status.state === 'needs-auth') {
+    windows.createHome()
+  }
+
   windows.showHud()
 
-  // An error still needs to clear itself; it falls back to idle, not hidden.
-  if (status.state === 'error') {
+  // An error, or a prompt, still needs to clear itself; both fall back to idle
+  // rather than hidden.
+  if (status.state === 'error' || status.state === 'needs-auth' || status.state === 'needs-upgrade') {
     hudTimer = setTimeout(() => {
       windows.broadcast(IPC.status, { state: 'idle' } satisfies PlaybackStatus)
       if (!keepVisible) windows.hideHud()
@@ -157,25 +181,49 @@ function registerIpc(): void {
     }
     return next
   })
-  ipcMain.handle(IPC.setApiKey, (_event, key: string) => {
+  ipcMain.handle(IPC.listVoices, () => listVoices())
+
+  ipcMain.handle(IPC.getAccount, () => account.current())
+  ipcMain.handle(IPC.refreshAccount, async () => {
+    await account.refresh()
+    return account.current()
+  })
+
+  ipcMain.handle(IPC.signIn, async () => {
     try {
-      settings.setApiKey(key)
+      await auth.signIn()
+      await account.refresh()
       return { ok: true }
     } catch (error) {
       return { ok: false, error: error instanceof Error ? error.message : String(error) }
     }
   })
-  ipcMain.handle(IPC.hasApiKey, () => settings.hasApiKey())
-  ipcMain.handle(IPC.listVoices, async () => {
-    const key = settings.getApiKey()
-    if (!key) return []
+
+  ipcMain.handle(IPC.signOut, () => {
+    auth.signOut()
+    void auth.openSignOutPage()
+    return { ok: true }
+  })
+
+  // Checkout and the billing portal both open in the system browser. Stripe
+  // forbids its Checkout page in an embedded webview, and we build no billing
+  // UI of our own at all.
+  ipcMain.handle(IPC.openCheckout, async () => {
     try {
-      return await listVoices(key)
-    } catch {
-      // A key scoped to text-to-speech only cannot read /v1/voices. That is a
-      // perfectly usable key, so fall back to the voice already configured
-      // rather than failing the whole Settings panel.
-      return []
+      await shell.openExternal(await account.checkoutUrl())
+      void account.awaitUpgrade()
+      return { ok: true }
+    } catch (error) {
+      return { ok: false, error: error instanceof Error ? error.message : String(error) }
+    }
+  })
+
+  ipcMain.handle(IPC.openBillingPortal, async () => {
+    try {
+      await shell.openExternal(await account.portalUrl())
+      return { ok: true }
+    } catch (error) {
+      return { ok: false, error: error instanceof Error ? error.message : String(error) }
     }
   })
 
@@ -197,6 +245,56 @@ function registerIpc(): void {
   })
 }
 
+/**
+ * In a packaged build macOS reads the scheme from CFBundleURLTypes in Info.plist
+ * and this call merely confirms it. Unpackaged, the scheme would otherwise
+ * register against the Electron binary rather than Pilcrow — passing execPath and
+ * the entry script is the documented way to make `npm start` behave, though the
+ * loopback redirect in services/auth.ts is what development actually relies on.
+ */
+function registerProtocol(): void {
+  if (app.isPackaged) {
+    app.setAsDefaultProtocolClient(DEEP_LINK_SCHEME)
+    return
+  }
+
+  const entry = process.argv[1]
+  if (entry) {
+    app.setAsDefaultProtocolClient(DEEP_LINK_SCHEME, process.execPath, [path.resolve(entry)])
+  }
+}
+
+function handleDeepLink(rawUrl: string): void {
+  let url: URL
+  try {
+    url = new URL(rawUrl)
+  } catch {
+    return
+  }
+
+  if (url.protocol !== `${DEEP_LINK_SCHEME}:`) return
+
+  // URL treats `pilcrow://auth/callback` as host "auth", path "/callback".
+  const route = `${url.host}${url.pathname}`.replace(/\/$/, '')
+
+  switch (route) {
+    case 'auth/callback':
+      void auth.handleCallback(url)
+      break
+
+    case 'billing/return':
+    case 'billing/success':
+      // Stripe's webhook can lag the redirect by seconds; poll until the
+      // entitlement flips rather than making someone who just paid click again.
+      windows.createHome()
+      void account.awaitUpgrade()
+      break
+
+    default:
+      windows.createHome()
+  }
+}
+
 function applyLoginItem(enabled: boolean): void {
   // Unsigned development builds cannot register a login item, and macOS reports
   // that as a hard error. Skip when already in the desired state so a default
@@ -216,6 +314,11 @@ app.whenReady().then(() => {
   reader.init({ onStatus, onAudio, onReset: resetAudio })
 
   const config = settings.load()
+
+  registerProtocol()
+  updater.init(BACKEND.updateFeedUrl)
+  account.init()
+  account.onChange((state: AccountState) => windows.broadcast(IPC.account, state))
 
   registerIpc()
   buildApplicationMenu({
@@ -247,6 +350,26 @@ app.whenReady().then(() => {
       windows.createHome()
     }
   })
+})
+
+/**
+ * The running-instance path. macOS delivers `pilcrow://` here rather than as an
+ * argv entry, and this can fire before `whenReady`, so the handler must tolerate
+ * being called with no windows open.
+ */
+app.on('open-url', (event, url) => {
+  event.preventDefault()
+  handleDeepLink(url)
+})
+
+/**
+ * The cold-start and relaunch path. If macOS launched a second copy to deliver
+ * the URL, the single-instance lock routes its argv here instead.
+ */
+app.on('second-instance', (_event, argv) => {
+  const link = argv.find((argument) => argument.startsWith(`${DEEP_LINK_SCHEME}://`))
+  if (link) handleDeepLink(link)
+  else windows.createHome()
 })
 
 app.on('will-quit', () => {

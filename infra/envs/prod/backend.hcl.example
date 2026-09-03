@@ -1,0 +1,6 @@
+# Copy to backend.hcl (gitignored) and fill from `terraform output backend_config`
+# in infra/bootstrap.
+bucket         = "pilcrow-tfstate-CHANGEME"
+dynamodb_table = "pilcrow-tf-locks"
+region         = "us-east-1"
+encrypt        = true

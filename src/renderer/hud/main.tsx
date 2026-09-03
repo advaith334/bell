@@ -51,6 +51,12 @@ function Pill() {
   const isError = state === 'error'
   const isIdle = state === 'idle'
 
+  // Being out of reads, or signed out, is not an error — it is something the
+  // user can fix in one click. The pill says so and opens Home rather than
+  // flashing red and doing nothing, which is what pressing the hotkey while
+  // blocked would otherwise feel like.
+  const isBlocked = state === 'needs-auth' || state === 'needs-upgrade'
+
   const setInteractive = (interactive: boolean) => {
     setHovered(interactive)
     window.pilcrow.setHudInteractive(interactive)
@@ -63,6 +69,7 @@ function Pill() {
           'pill',
           isIdle && !hovered ? 'pill--idle' : '',
           isError ? 'pill--error' : '',
+          isBlocked ? 'pill--blocked' : '',
           isSpeaking ? 'pill--speaking' : '',
         ]
           .filter(Boolean)
@@ -70,8 +77,10 @@ function Pill() {
         onMouseEnter={() => setInteractive(true)}
         onMouseLeave={() => setInteractive(false)}
         onClick={() => {
-          // Click is a toggle: start a read when idle, stop when speaking.
-          if (isSpeaking || isBusy) void window.pilcrow.stop()
+          // Click is a toggle: start a read when idle, stop when speaking. When
+          // blocked it is a way through to the thing that unblocks you.
+          if (isBlocked) void window.pilcrow.openHome()
+          else if (isSpeaking || isBusy) void window.pilcrow.stop()
           else void window.pilcrow.read()
         }}
         title={isIdle ? `Press ${formatAccelerator(hotkey)} to read the selection` : undefined}
@@ -80,17 +89,22 @@ function Pill() {
         {isSpeaking && <Bars />}
         {isIdle && <span className="pill__dot" />}
         {isError && <span className="pill__warn">!</span>}
+        {isBlocked && <span className="pill__warn">↑</span>}
 
         {/* Idle stays wordless until hovered, so it reads as ambient. */}
         {(hovered || !isIdle) && (
           <span className="pill__label">
-            {isError
-              ? status.error
-              : isSpeaking
-                ? 'Speaking'
-                : isBusy
-                  ? 'Preparing'
-                  : `Pilcrow · ${formatAccelerator(hotkey)}`}
+            {state === 'needs-auth'
+              ? 'Sign in to Pilcrow'
+              : state === 'needs-upgrade'
+                ? 'Free reads used up'
+                : isError
+                  ? status.error
+                  : isSpeaking
+                    ? 'Speaking'
+                    : isBusy
+                      ? 'Preparing'
+                      : `Pilcrow · ${formatAccelerator(hotkey)}`}
           </span>
         )}
 
